@@ -8,6 +8,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 
+# .env 파일 로드 (AWS EC2 등에서 사용)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # .env 파일이 있으면 자동 로드
+except ImportError:
+    pass  # python-dotenv가 없어도 환경 변수는 작동
+
 # 비트코인 반감기 날짜 (과거 및 예정)
 HALVING_DATES = {
     "2012-11-28": "1차 반감기",
