@@ -5,7 +5,7 @@
 
 ## 🌐 실시간 리포트 보기
 
-**GitHub Pages:** https://[당신의username].github.io/bitcoin-analysis/
+**GitHub Pages:** https://9min.github.io/bitcoin-analysis/
 
 > 매일 한국시간 오전 9시에 자동으로 업데이트됩니다!
 
@@ -25,36 +25,6 @@
 - 종합 점수 (-15점 ~ +25점)
 - 가격 목표 및 전략
 - 권장 행동
-
-## 🚀 로컬 사용 방법
-
-### 설치
-```bash
-git clone https://github.com/[당신의username]/bitcoin-analysis.git
-cd bitcoin-analysis
-pip install -r requirements.txt
-```
-
-### HTML 리포트 생성
-```bash
-# 브라우저로 자동 열기
-python generate_html_report.py
-
-# HTML만 생성 (브라우저 안 열기)
-python generate_html_report.py --no-open
-```
-
-### 이메일 전송
-```bash
-python bitcoin_analysis.py
-```
-
-## 🤖 자동 배포 시스템
-
-### GitHub Actions
-- **자동 실행**: 매일 오전 9시 (KST)
-- **수동 실행**: GitHub Actions 탭에서 가능
-- **자동 배포**: GitHub Pages로 자동 배포
 
 ### 워크플로우
 1. 비트코인 데이터 수집 (Binance API)
@@ -103,20 +73,6 @@ bitcoin-analysis/
 - **매도**: -6점 이하
 - **적극 매도**: -10점 이하
 
-## 💡 PDF 저장 방법
-
-웹사이트에서 `Ctrl + P` → "PDF로 저장" 선택
-
-## ⚙️ 커스터마이징
-
-### 이메일 설정 변경
-`bitcoin_analysis.py` 파일의 26-29번째 줄 수정:
-```python
-EMAIL_ADDRESS = "your@email.com"
-EMAIL_PASSWORD = "your_app_password"
-RECIPIENT_EMAIL = "recipient@email.com"
-```
-
 ### 업데이트 주기 변경
 `.github/workflows/deploy.yml` 파일의 cron 수정:
 ```yaml
@@ -131,10 +87,6 @@ RECIPIENT_EMAIL = "recipient@email.com"
 
 MIT License
 
-## 🤝 기여
-
-이슈와 PR을 환영합니다!
-
 ## ⚠️ 면책 조항
 
 이 분석은 참고용이며 투자 권유가 아닙니다.
@@ -142,5 +94,5 @@ MIT License
 
 ---
 
-Made with ❤️ by [Your Name]
+Made with ❤️ by 9min
 
