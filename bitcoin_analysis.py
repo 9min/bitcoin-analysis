@@ -23,10 +23,10 @@ HISTORICAL_ATH = {
     "2021-11-10": 69000,   # 3차 사이클 고점
 }
 
-# 설정 정보
-EMAIL_ADDRESS = "gm870711@gmail.com"  # 발신자 이메일
-EMAIL_PASSWORD = "riqntklboduwdnoz"  # 앱 비밀번호 (Gmail의 경우 앱 비밀번호 필요)
-RECIPIENT_EMAIL = "gm0711@kakao.com"  # 수신자 이메일
+# 설정 정보 (환경 변수에서 가져오기 - 보안)
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS", "")  # 발신자 이메일
+EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # 앱 비밀번호 (Gmail의 경우 앱 비밀번호 필요)
+RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL", "")  # 수신자 이메일
 
 # Gmail SMTP 서버 설정
 SMTP_SERVER = "smtp.gmail.com"
