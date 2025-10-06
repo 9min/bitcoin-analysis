@@ -1,0 +1,882 @@
+
+    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>비트코인 분석 리포트</title>
+        <style type="text/css">
+            /* 프린트 전용 스타일 */
+            @media print {
+                /* 페이지 설정 */
+                @page {
+                    size: A4;
+                    margin: 1cm;
+                }
+                
+                /* 기본 스타일 */
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+                    font-size: 10pt;
+                    line-height: 1.4;
+                    color: #000;
+                    background: #fff !important;
+                }
+                
+                /* 배경색 제거 */
+                * {
+                    background: transparent !important;
+                    box-shadow: none !important;
+                }
+                
+                /* 컨테이너 */
+                table {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    border-collapse: collapse;
+                }
+                
+                /* 헤더 스타일 */
+                .print-header {
+                    background: #0052cc !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                    color: #000 !important;
+                    padding: 15px !important;
+                    border: 2px solid #000 !important;
+                    page-break-after: avoid;
+                }
+                
+                .print-header h1 {
+                    color: #000 !important;
+                    font-size: 18pt !important;
+                    margin: 0 !important;
+                }
+                
+                .print-header p {
+                    color: #333 !important;
+                    font-size: 9pt !important;
+                }
+                
+                /* 가격 정보 */
+                .price-box {
+                    border: 2px solid #000 !important;
+                    padding: 10px !important;
+                    text-align: center;
+                    page-break-inside: avoid;
+                }
+                
+                .price-box p {
+                    font-size: 24pt !important;
+                    font-weight: bold !important;
+                    color: #000 !important;
+                }
+                
+                /* 투자 판단 박스 */
+                .judgment-box {
+                    border: 3px solid #000 !important;
+                    padding: 15px !important;
+                    text-align: center;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                .judgment-box p {
+                    font-size: 16pt !important;
+                    font-weight: bold !important;
+                    color: #000 !important;
+                }
+                
+                /* 섹션 제목 */
+                h2 {
+                    font-size: 14pt !important;
+                    color: #000 !important;
+                    border-bottom: 2px solid #000 !important;
+                    padding-bottom: 5px !important;
+                    margin: 15px 0 10px 0 !important;
+                    page-break-after: avoid;
+                }
+                
+                /* 표 스타일 */
+                .data-table {
+                    border: 1px solid #000 !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                .data-table td {
+                    border: 1px solid #666 !important;
+                    padding: 8px !important;
+                    font-size: 9pt !important;
+                    color: #000 !important;
+                }
+                
+                .table-header {
+                    background: #ddd !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                    font-weight: bold !important;
+                }
+                
+                /* 4년 주기 및 고점 근접도 박스 */
+                .warning-box {
+                    border: 2px solid #000 !important;
+                    padding: 10px !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                /* 경고 박스 */
+                .alert-box {
+                    border: 3px double #000 !important;
+                    padding: 10px !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                /* 지표 카드 */
+                .indicator-card {
+                    border: 1px solid #666 !important;
+                    padding: 8px !important;
+                    margin: 5px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                /* 유의사항 박스 */
+                .notice-box {
+                    border: 1px dashed #666 !important;
+                    padding: 10px !important;
+                    margin: 15px 0 !important;
+                    page-break-inside: avoid;
+                }
+                
+                .notice-box ul {
+                    margin: 5px 0 !important;
+                    padding-left: 20px !important;
+                }
+                
+                .notice-box li {
+                    font-size: 8pt !important;
+                    line-height: 1.4 !important;
+                    color: #333 !important;
+                }
+                
+                /* 푸터 */
+                .footer {
+                    border-top: 1px solid #000 !important;
+                    padding: 10px !important;
+                    text-align: center;
+                    font-size: 8pt !important;
+                    color: #666 !important;
+                    page-break-before: avoid;
+                }
+                
+                /* 페이지 브레이크 제어 */
+                .no-break {
+                    page-break-inside: avoid;
+                }
+                
+                .page-break {
+                    page-break-before: always;
+                }
+                
+                /* 불필요한 요소 숨김 */
+                .no-print {
+                    display: none !important;
+                }
+                
+                /* 링크 URL 표시 */
+                a[href]:after {
+                    content: none !important;
+                }
+            }
+            
+            /* 화면 표시용 스타일 */
+            @media screen {
+                .print-only {
+                    display: none;
+                }
+            }
+        </style>
+    </head>
+    <body style="margin:0; padding:0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', sans-serif;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f7f7f7;">
+            <tr>
+                <td style="padding: 20px 0;">
+                    <!-- 컨테이너 -->
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                        <!-- 헤더 -->
+                        <tr>
+                            <td align="center" class="print-header" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
+                                <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">📈 비트코인(BTC) 중장기 투자 분석</h1>
+                                <p style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">14개 핵심 지표 종합 분석 리포트</p>
+                                <p style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">2025-10-06 12:29:38</p>
+                            </td>
+                        </tr>
+                        
+                        <!-- 가격 정보 -->
+                        <tr>
+                            <td style="padding: 0;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td align="center" class="price-box no-break" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
+                                            <p style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">현재 가격</p>
+                                            <p style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; color: #0d2a53;">
+                                                $124,538.10
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 투자 판단 -->
+                        <tr>
+                            <td style="padding: 0;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td align="center" style="padding: 25px 30px; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="90%">
+                                                <tr>
+                                                    <td align="center" class="judgment-box no-break" style="padding: 20px; border-radius: 12px; background-color: #757575; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                        <p style="margin: 0; font-size: 26px; font-weight: bold; color: #ffffff;">
+                                                            🟠 분할 매도 시작
+                                                        </p>
+                                                        <p style="margin: 10px 0 0 0; font-size: 14px; color: #ffffff; opacity: 0.9;">
+                                                            종합 점수: 3.5점
+                                                        </p>
+                                                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #ffffff; opacity: 0.75;">
+                                                            (범위: -15점~+25점 | 중립: 0점 | 매수: +6점 이상 | 매도: -3점 이하)
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px;">
+                                                <tr>
+                                                    <td style="padding: 15px; background-color: #f9f9f9; border-left: 4px solid #757575; border-radius: 4px;">
+                                                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                                                            <strong>💡 투자 판단:</strong> 고점 근접도 45점! 과열 구간 진입. 보유 물량의 30-50% 매도 권장
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px;">
+                                                <tr>
+                                                    <td style="padding: 15px; background-color: #E3F2FD; border-left: 4px solid #2196F3; border-radius: 4px;">
+                                                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                                                            <strong>🎯 권장 행동:</strong> 분할 매도 시작 (보유 물량의 30-50%)
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 핵심 분석: 고점 근접도 (메인) + 4년 주기 (참고) -->
+                        <tr class="page-break">
+                            <td style="padding: 25px 30px; background-color: #ffffff;">
+                                <h2 style="color: #D32F2F; font-size: 24px; margin: 0 0 25px 0; padding-bottom: 12px; border-bottom: 3px solid #F44336;">
+                                    📊 핵심 분석: 고점 근접도 (12개 지표 종합)
+                                </h2>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="alert-box no-break" style="margin-bottom: 20px; background-color: #FFF9C4; border-radius: 8px; border: 3px solid #F57F17;">
+                                    <tr>
+                                        <td style="padding: 20px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 18px; font-weight: bold; color: #F57F17; padding-bottom: 10px;">
+                                                        ⚠️ 고점 근접도: 45/100점
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 16px; font-weight: bold; color: #F57F17; padding: 10px 0;">
+                                                        🟡 과열 구간 (분할 매도 시작)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 15px; color: #333333; padding: 10px 0; background-color: rgba(255,255,255,0.7); border-radius: 6px; padding: 15px;">
+                                                        <strong>🎯 매도 권장사항:</strong> 보유 물량의 30-50% 매도 권장
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding-top: 15px;">
+                                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📈 99.1%
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📊 +17.6%
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    🔥 RSI 과열: 2/30일
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📍 볼린저 상단: 14/30일
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    💹 거래량: 0.5x
+                                                                </td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px; background-color: #F5F5F5; border-radius: 6px; border-left: 3px solid #757575;">
+                                    <tr>
+                                        <td style="padding: 12px 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 13px; font-weight: bold; color: #555555; padding-bottom: 8px;">
+                                                        🔄 4년 주기 참고: 상승 초기 (강세장 시작)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 2px 0;">
+                                                        최근 반감기 2024.04.20 (534일 경과) | 진행률 36.6%
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 8px 0 0 0;">
+                                                        <div style="width: 100%; height: 20px; background-color: #E0E0E0; border-radius: 10px; overflow: hidden;">
+                                                            <div style="width: 36.6%; height: 100%; background: linear-gradient(90deg, #9E9E9E 0%, #757575 100%); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: #ffffff; font-weight: bold; font-size: 10px;">
+                                                                36.6%
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 가격 목표 및 전략 -->
+                        <tr>
+                            <td style="padding: 25px 30px; background-color: #f9f9f9;">
+                                <h2 style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                                    📊 가격 목표 및 전략
+                                </h2>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📊 Predicted Peak
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $139742.66 (예상 고점 - medium 신뢰도)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📍 Exit Stage 1
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $125768.40 (1차 매도 20% - 예상고점 90%)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📍 Exit Stage 2
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $132755.53 (2차 매도 30% - 예상고점 95%)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📍 Exit Stage 3
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $139742.66 (3차 매도 30% - 예상고점 도달)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📍 Exit Stage 4
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $143934.94 (최종 20% - 예상고점 초과 시)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📊 Upside To Peak
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        +12.2% (현재가 → 예상 고점)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📉 Support 1
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $114575.05 (1차 지지선)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📉 Support 2
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $105857.39 (2차 지지선)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📉 Support 3
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $97139.72 (3차 지지선)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        📍 Reentry Zone
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        $99630.48 근처 (재진입 고려)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                            </td>
+                        </tr>
+                        
+                        <!-- 지표 분석 -->
+                        <tr>
+                            <td style="padding: 25px 30px;">
+                                <h2 style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;">
+                                    지표별 분석
+                                </h2>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            RSI (상대강도지수)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">72.51</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #B71C1C;">
+                                                        과매수
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            MACD (이동평균수렴확산지수)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">2420.36, 시그널: 1142.03, 히스토그램: 1278.33</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #1B5E20;">
+                                                        강한 상승 추세
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            이동평균선
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        <span style="font-family: 'Courier New', monospace; font-weight: bold;">가격: 124538.10, 20일: 115967.49, 50일: 113993.11, 200일: 105897.70</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; font-weight: bold; color: #1B5E20; padding: 5px 0;">
+                                                        강한 상승 추세 (황금 크로스)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 5px 0; font-style: italic;">
+                                                        가격 > 20일선 > 50일선 > 200일선 (완전 상승 배열)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            볼린저 밴드
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        <span style="font-family: 'Courier New', monospace; font-weight: bold;">밴드 위치: 96.6%, 밴드폭: 0.1588</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; font-weight: bold; color: #B71C1C; padding: 5px 0;">
+                                                        강한 과매수 구간
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 5px 0; font-style: italic;">
+                                                        상단: 125172.76, 중간: 115967.49, 하단: 106762.21
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            스토캐스틱 오실레이터
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">%K: 93.34, %D: 90.32</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #B71C1C;">
+                                                        강한 과매수 구간
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            EMA 추세 (지수이동평균)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">가격: 124538.10, 12일: 118976.03, 26일: 116555.68, 50일: 115252.37, 100일: 113019.87</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #1B5E20;">
+                                                        강한 상승 추세 (완벽한 정배열)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            거래량 분석 (OBV)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">OBV: 39,016, OBV MA: 32,730</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #1B5E20;">
+                                                        강한 매수세 유입
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            추세 강도 (ADX)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">ADX: 28.62, +DI: 40.69, -DI: 11.11</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #4CAF50;">
+                                                        강한 추세 - 상승 방향
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            일목균형표 (Ichimoku Cloud)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        <span style="font-family: 'Courier New', monospace; font-weight: bold;">구름 상단: 117310.73, 구름 하단: 116462.50</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; font-weight: bold; color: #1B5E20; padding: 5px 0;">
+                                                        강한 상승 추세 (구름 위)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 5px 0; font-style: italic;">
+                                                        가격이 구름 위에 위치 - 강세장, 전환선이 기준선 위 - 추가 상승 여력
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            변동성 (ATR)
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">ATR: 2532.23 (2.03%)</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #757575;">
+                                                        보통 변동성
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            공포/탐욕 지수
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">67.0 / 100</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: #F44336;">
+                                                        탐욕 (차익실현 고려)
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            피보나치 되돌림
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        <span style="font-family: 'Courier New', monospace; font-weight: bold;">23.6%: $121324.06, 38.2%: $118635.47, 50%: $116462.50, 61.8%: $114289.53</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; font-weight: bold; color: #4CAF50; padding: 5px 0;">
+                                                        강세 구간 (23.6% 되돌림 위)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 5px 0; font-style: italic;">
+                                                        가격이 주요 되돌림 레벨 위에서 지지
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    
+                                <!-- 투자자 유의사항 -->
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="notice-box no-break" style="margin-top: 10px; background-color: #FFFDE7; border-radius: 6px; border-left: 3px solid #FFC107;">
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <h3 style="margin: 0 0 10px 0; color: #555555; font-size: 16px;">⚠️ 중장기 투자자를 위한 유의사항</h3>
+                                            <ul style="margin: 0; padding-left: 20px; color: #555555; font-size: 13px; line-height: 1.6;">
+                                                <li><strong>기술적 분석은 참고 자료:</strong> 모든 투자 판단의 결과는 본인 책임이며, 이 분석은 참고용으로만 활용하세요.</li>
+                                                <li><strong>중장기 관점 유지:</strong> 일일 변동성에 흔들리지 말고, 주요 추세와 지지/저항선을 중심으로 판단하세요.</li>
+                                                <li><strong>분할 매수/매도 전략:</strong> 한 번에 전량 매수/매도하지 말고, 여러 차례 나누어 진행하세요.</li>
+                                                <li><strong>손절매 라인 준수:</strong> 손실을 제한하기 위해 사전에 정한 손절매 라인을 반드시 지키세요.</li>
+                                                <li><strong>강한 추세의 특징:</strong> 과매수/과매도 구간이 장기간 유지될 수 있으므로, 추세의 방향성을 함께 고려하세요.</li>
+                                                <li><strong>리스크 관리:</strong> 투자금은 손실을 감당할 수 있는 범위 내에서만 운용하세요.</li>
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 푸터 -->
+                        <tr>
+                            <td class="footer" style="padding: 20px 30px; background-color: #f5f5f5; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #777777; border-top: 1px solid #eeeeee;">
+                                <p style="margin: 0;">© 9min 비트코인 기술적 분석 리포트</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    
