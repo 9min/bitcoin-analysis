@@ -1176,7 +1176,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
     <html xmlns="http://www.w3.org/1999/xhtml">
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
         <title>비트코인 분석 리포트</title>
         <style type="text/css">
             /* 프린트 전용 스타일 */
@@ -1372,21 +1372,68 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                     display: none;
                 }}
             }}
+            
+            /* 모바일 최적화 */
+            @media screen and (max-width: 640px) {{
+                /* 테이블을 100% 너비로 */
+                .email-container {{
+                    width: 100% !important;
+                    min-width: 100% !important;
+                }}
+                
+                /* 패딩 축소 */
+                .mobile-padding {{
+                    padding: 15px !important;
+                }}
+                
+                .mobile-padding-small {{
+                    padding: 10px !important;
+                }}
+                
+                /* 폰트 크기 조정 */
+                .mobile-text-large {{
+                    font-size: 28px !important;
+                }}
+                
+                .mobile-text-medium {{
+                    font-size: 18px !important;
+                }}
+                
+                .mobile-text-small {{
+                    font-size: 12px !important;
+                }}
+                
+                /* 가격 표시 */
+                .mobile-price {{
+                    font-size: 28px !important;
+                }}
+                
+                /* 헤더 */
+                .mobile-header {{
+                    padding: 20px 15px !important;
+                }}
+                
+                /* 두 열을 한 열로 */
+                .mobile-full-width {{
+                    width: 100% !important;
+                    display: block !important;
+                }}
+            }}
         </style>
     </head>
     <body style="margin:0; padding:0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', sans-serif;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f7f7f7;">
             <tr>
-                <td style="padding: 20px 0;">
+                <td class="mobile-padding-small" style="padding: 20px 0;">
                     <!-- 컨테이너 -->
-                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" class="email-container" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); max-width: 600px;">
                         <!-- 헤더 -->
                         <tr>
-                            <td align="center" class="print-header" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
-                                <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">📈 비트코인(BTC) 중장기 투자 분석</h1>
-                                <p style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">14개 핵심 지표 종합 분석 리포트</p>
-                                <p style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">{date_str}</p>
-                                <p style="color: #ffffff; opacity: 0.7; margin: 8px 0 0 0; font-size: 11px; background-color: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 15px; display: inline-block;">
+                            <td align="center" class="print-header mobile-header" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
+                                <h1 class="mobile-text-medium" style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">📈 비트코인(BTC) 중장기 투자 분석</h1>
+                                <p class="mobile-text-small" style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">14개 핵심 지표 종합 분석 리포트</p>
+                                <p class="mobile-text-small" style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">{date_str}</p>
+                                <p class="mobile-text-small" style="color: #ffffff; opacity: 0.7; margin: 8px 0 0 0; font-size: 11px; background-color: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 15px; display: inline-block;">
                                     🔄 매일 오전 9시 (KST) 자동 업데이트
                                 </p>
                             </td>
@@ -1397,9 +1444,9 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                             <td style="padding: 0;">
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
-                                        <td align="center" class="price-box no-break" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
-                                            <p style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">현재 가격</p>
-                                            <p style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; color: #0d2a53;">
+                                        <td align="center" class="price-box no-break mobile-padding" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
+                                            <p class="mobile-text-small" style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">현재 가격</p>
+                                            <p class="mobile-price" style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; color: #0d2a53;">
                                                 ${price:,.2f}
                                             </p>
                                         </td>
@@ -1413,17 +1460,17 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                             <td style="padding: 0;">
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
-                                        <td align="center" style="padding: 25px 30px; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                                            <table border="0" cellpadding="0" cellspacing="0" width="90%">
+                                        <td align="center" class="mobile-padding" style="padding: 25px 30px; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="90%" class="email-container">
                                                 <tr>
-                                                    <td align="center" class="judgment-box no-break" style="padding: 20px; border-radius: 12px; background-color: {position_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                                                        <p style="margin: 0; font-size: 26px; font-weight: bold; color: #ffffff;">
+                                                    <td align="center" class="judgment-box no-break mobile-padding-small" style="padding: 20px; border-radius: 12px; background-color: {position_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                        <p class="mobile-text-medium" style="margin: 0; font-size: 26px; font-weight: bold; color: #ffffff;">
                                                             {final_position}
                                                         </p>
-                                                        <p style="margin: 10px 0 0 0; font-size: 14px; color: #ffffff; opacity: 0.9;">
+                                                        <p class="mobile-text-small" style="margin: 10px 0 0 0; font-size: 14px; color: #ffffff; opacity: 0.9;">
                                                             종합 점수: {total_score:.1f}점
                                                         </p>
-                                                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #ffffff; opacity: 0.75;">
+                                                        <p class="mobile-text-small" style="margin: 5px 0 0 0; font-size: 11px; color: #ffffff; opacity: 0.75;">
                                                             (범위: -15점~+25점 | 중립: 0점 | 매수: +6점 이상 | 매도: -3점 이하)
                                                         </p>
                                                     </td>
@@ -1431,8 +1478,8 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                             </table>
                                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px;">
                                                 <tr>
-                                                    <td style="padding: 15px; background-color: #f9f9f9; border-left: 4px solid {position_color}; border-radius: 4px;">
-                                                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                                                    <td class="mobile-padding-small" style="padding: 15px; background-color: #f9f9f9; border-left: 4px solid {position_color}; border-radius: 4px;">
+                                                        <p class="mobile-text-small" style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
                                                             <strong>💡 투자 판단:</strong> {recommendation}
                                                         </p>
                                                     </td>
@@ -1440,8 +1487,8 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                             </table>
                                             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px;">
                                                 <tr>
-                                                    <td style="padding: 15px; background-color: #E3F2FD; border-left: 4px solid #2196F3; border-radius: 4px;">
-                                                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                                                    <td class="mobile-padding-small" style="padding: 15px; background-color: #E3F2FD; border-left: 4px solid #2196F3; border-radius: 4px;">
+                                                        <p class="mobile-text-small" style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
                                                             <strong>🎯 권장 행동:</strong> {action}
                                                         </p>
                                                     </td>
@@ -1455,8 +1502,8 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         
                         <!-- 핵심 분석: 고점 근접도 (메인) + 4년 주기 (참고) -->
                         <tr class="page-break">
-                            <td style="padding: 25px 30px; background-color: #ffffff;">
-                                <h2 style="color: #D32F2F; font-size: 24px; margin: 0 0 25px 0; padding-bottom: 12px; border-bottom: 3px solid #F44336;">
+                            <td class="mobile-padding" style="padding: 25px 30px; background-color: #ffffff;">
+                                <h2 class="mobile-text-medium" style="color: #D32F2F; font-size: 24px; margin: 0 0 25px 0; padding-bottom: 12px; border-bottom: 3px solid #F44336;">
                                     📊 핵심 분석: 고점 근접도 (12개 지표 종합)
                                 </h2>
     """
@@ -1573,8 +1620,8 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         
                         <!-- 가격 목표 및 전략 -->
                         <tr>
-                            <td style="padding: 25px 30px; background-color: #f9f9f9;">
-                                <h2 style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                            <td class="mobile-padding" style="padding: 25px 30px; background-color: #f9f9f9;">
+                                <h2 class="mobile-text-medium" style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
                                     📊 가격 목표 및 전략
                                 </h2>
     """
@@ -1609,8 +1656,8 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         
                         <!-- 지표 분석 -->
                         <tr>
-                            <td style="padding: 25px 30px;">
-                                <h2 style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;">
+                            <td class="mobile-padding" style="padding: 25px 30px;">
+                                <h2 class="mobile-text-medium" style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0;">
                                     지표별 분석
                                 </h2>
     """
