@@ -97,7 +97,11 @@ def analyze_bitcoin_cycle():
     last_halving = None
     next_halving = None
     
-    halving_dates_sorted = sorted([datetime.strptime(date, "%Y-%m-%d") for date in HALVING_DATES.keys() if "XX" not in date])
+    # naive datetime을 aware datetime으로 변환 (KST 기준)
+    halving_dates_sorted = sorted([
+        datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=KST) 
+        for date in HALVING_DATES.keys() if "XX" not in date
+    ])
     
     for halving_date in halving_dates_sorted:
         if halving_date <= current_date:
