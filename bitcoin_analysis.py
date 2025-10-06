@@ -5,7 +5,23 @@ import ta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
+
+# 비트코인 반감기 날짜 (과거 및 예정)
+HALVING_DATES = {
+    "2012-11-28": "1차 반감기",
+    "2016-07-09": "2차 반감기", 
+    "2020-05-11": "3차 반감기",
+    "2024-04-20": "4차 반감기",
+    "2028-04-XX": "5차 반감기 (예정)"
+}
+
+# 역사적 고점 데이터 (참고용)
+HISTORICAL_ATH = {
+    "2013-12-04": 1163,    # 1차 사이클 고점
+    "2017-12-17": 19783,   # 2차 사이클 고점
+    "2021-11-10": 69000,   # 3차 사이클 고점
+}
 
 # 설정 정보
 EMAIL_ADDRESS = "gm870711@gmail.com"  # 발신자 이메일
@@ -22,8 +38,8 @@ def get_bitcoin_data():
         # Binance API 사용 (다른 거래소도 선택 가능)
         exchange = ccxt.binance()
         
-        # 일봉 데이터 가져오기 (최근 250일 데이터)
-        ohlcv = exchange.fetch_ohlcv('BTC/USDT', '1d', limit=250)
+        # 일봉 데이터 가져오기 (최근 500일 데이터 - 사이클 분석용)
+        ohlcv = exchange.fetch_ohlcv('BTC/USDT', '1d', limit=500)
         
         # DataFrame으로 변환
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -34,6 +50,188 @@ def get_bitcoin_data():
     except Exception as e:
         print(f"데이터 가져오기 오류: {e}")
         return None
+
+# 비트코인 4년 주기 분석
+def analyze_bitcoin_cycle():
+    """현재 비트코인이 4년 주기 중 어디에 위치하는지 분석"""
+    current_date = datetime.now()
+    
+    # 가장 최근 반감기 찾기
+    last_halving = None
+    next_halving = None
+    
+    halving_dates_sorted = sorted([datetime.strptime(date, "%Y-%m-%d") for date in HALVING_DATES.keys() if "XX" not in date])
+    
+    for halving_date in halving_dates_sorted:
+        if halving_date <= current_date:
+            last_halving = halving_date
+        elif halving_date > current_date and next_halving is None:
+            next_halving = halving_date
+            break
+    
+    if last_halving is None:
+        return None
+    
+    # 반감기 이후 경과 일수
+    days_since_halving = (current_date - last_halving).days
+    
+    # 4년 주기에서의 위치 (%)
+    cycle_days = 365.25 * 4  # 4년
+    cycle_position_pct = (days_since_halving / cycle_days) * 100
+    
+    # 사이클 단계 판단
+    if cycle_position_pct < 15:
+        cycle_phase = "축적기 (반감기 직후)"
+        phase_score = 2  # 매수 적극 권장
+    elif cycle_position_pct < 40:
+        cycle_phase = "상승 초기 (강세장 시작)"
+        phase_score = 1.5  # 매수 권장
+    elif cycle_position_pct < 60:
+        cycle_phase = "상승 중기 (강세장 한복판)"
+        phase_score = 0.5  # 보유 권장
+    elif cycle_position_pct < 75:
+        cycle_phase = "상승 후기 (과열 구간)"
+        phase_score = -0.5  # 일부 매도 시작
+    elif cycle_position_pct < 90:
+        cycle_phase = "고점 근접 (분할 매도 구간)"
+        phase_score = -1.5  # 분할 매도 적극 권장
+    else:
+        cycle_phase = "사이클 말기 (약세장 전환)"
+        phase_score = -2  # 매도 완료 권장
+    
+    cycle_info = {
+        "last_halving": last_halving,
+        "next_halving": next_halving,
+        "days_since_halving": days_since_halving,
+        "cycle_position_pct": cycle_position_pct,
+        "cycle_phase": cycle_phase,
+        "phase_score": phase_score
+    }
+    
+    return cycle_info
+
+# 고점 근접도 분석 (과매수 및 과열 신호 종합)
+def analyze_peak_proximity(df, indicators):
+    """현재 가격이 사이클 고점에 얼마나 가까운지 분석"""
+    
+    latest = df.iloc[-1]
+    current_price = latest['close']
+    
+    # 1. 역사적 최고가 대비 비율
+    max_price_52w = df['high'].tail(365).max()  # 52주 최고가
+    max_price_all = df['high'].max()  # 전체 기간 최고가
+    
+    price_vs_52w_high = (current_price / max_price_52w) * 100
+    price_vs_all_high = (current_price / max_price_all) * 100
+    
+    # 2. RSI 극단값 (70 이상이 지속되는 정도)
+    rsi = latest['rsi']
+    rsi_readings_above_70 = (df['rsi'].tail(30) > 70).sum()  # 최근 30일 중 RSI 70 이상 일수
+    
+    # 3. 200일 이평선 대비 괴리율
+    ma200 = latest['ma200']
+    price_deviation_ma200 = ((current_price - ma200) / ma200) * 100
+    
+    # 4. 볼린저밴드 위치 지속성
+    bb_upper = latest['bb_upper']
+    bb_lower = latest['bb_lower']
+    bb_position = ((current_price - bb_lower) / (bb_upper - bb_lower)) * 100 if (bb_upper - bb_lower) > 0 else 50
+    days_near_bb_upper = (((df['close'].tail(30) - df['bb_lower'].tail(30)) / (df['bb_upper'].tail(30) - df['bb_lower'].tail(30)) * 100) > 80).sum()
+    
+    # 5. 거래량 폭증 (고점 신호)
+    volume_ma = df['volume'].tail(30).mean()
+    current_volume = latest['volume']
+    volume_surge = (current_volume / volume_ma) if volume_ma > 0 else 1
+    
+    # 고점 근접 점수 계산 (0~100)
+    peak_score = 0
+    
+    # 가격이 52주 최고가 근처 (20점)
+    if price_vs_52w_high > 95:
+        peak_score += 20
+    elif price_vs_52w_high > 90:
+        peak_score += 15
+    elif price_vs_52w_high > 85:
+        peak_score += 10
+    
+    # RSI 과열 지속 (20점)
+    if rsi > 80:
+        peak_score += 20
+    elif rsi > 70:
+        peak_score += 15
+        if rsi_readings_above_70 > 15:  # 최근 30일 중 절반 이상
+            peak_score += 5
+    
+    # 200일선 괴리율 과도 (20점)
+    if price_deviation_ma200 > 100:  # 100% 이상 괴리
+        peak_score += 20
+    elif price_deviation_ma200 > 70:
+        peak_score += 15
+    elif price_deviation_ma200 > 50:
+        peak_score += 10
+    
+    # 볼린저밴드 상단 장기 체류 (20점)
+    if days_near_bb_upper > 20:
+        peak_score += 20
+    elif days_near_bb_upper > 15:
+        peak_score += 15
+    elif days_near_bb_upper > 10:
+        peak_score += 10
+    
+    # 거래량 폭증 (20점)
+    if volume_surge > 3:  # 평균 대비 3배 이상
+        peak_score += 20
+    elif volume_surge > 2:
+        peak_score += 15
+    elif volume_surge > 1.5:
+        peak_score += 10
+    
+    # 공포/탐욕 지수 (추가 보너스)
+    fear_greed = latest['fear_greed']
+    if fear_greed > 85:
+        peak_score += 10
+    elif fear_greed > 75:
+        peak_score += 5
+    
+    # 최대값 제한
+    peak_score = min(100, peak_score)
+    
+    # 고점 근접도 판단
+    if peak_score >= 80:
+        peak_status = "🔴 극도의 과열 (즉시 분할 매도 권장)"
+        sell_recommendation = "보유 물량의 80-100% 매도 권장"
+    elif peak_score >= 60:
+        peak_status = "🟠 심각한 과열 (적극 분할 매도)"
+        sell_recommendation = "보유 물량의 50-70% 매도 권장"
+    elif peak_score >= 40:
+        peak_status = "🟡 과열 구간 (분할 매도 시작)"
+        sell_recommendation = "보유 물량의 30-50% 매도 권장"
+    elif peak_score >= 20:
+        peak_status = "⚪ 상승 지속 (일부 익절 고려)"
+        sell_recommendation = "보유 물량의 10-20% 익절 고려"
+    else:
+        peak_status = "🟢 정상 범위"
+        sell_recommendation = "보유 유지"
+    
+    peak_info = {
+        "peak_score": peak_score,
+        "peak_status": peak_status,
+        "sell_recommendation": sell_recommendation,
+        "price_vs_52w_high": price_vs_52w_high,
+        "price_deviation_ma200": price_deviation_ma200,
+        "rsi_overheating": rsi_readings_above_70,
+        "bb_days_near_upper": days_near_bb_upper,
+        "volume_surge": volume_surge,
+        "details": {
+            "52주 최고가 대비": f"{price_vs_52w_high:.1f}%",
+            "200일선 괴리율": f"+{price_deviation_ma200:.1f}%",
+            "RSI 과열 일수": f"{rsi_readings_above_70}/30일",
+            "볼린저 상단 체류": f"{days_near_bb_upper}/30일",
+            "거래량 배수": f"{volume_surge:.1f}x"
+        }
+    }
+    
+    return peak_info
 
 # 기술적 지표 계산
 def calculate_indicators(df):
@@ -54,19 +252,101 @@ def calculate_indicators(df):
     df['ma50'] = ta.trend.SMAIndicator(df['close'], window=50).sma_indicator()
     df['ma200'] = ta.trend.SMAIndicator(df['close'], window=200).sma_indicator()
     
-    # 4. 볼린저 밴드
+    # 4. 지수 이동평균선 (12일, 26일, 50일, 100일) - 중장기 트레이드에 적합
+    df['ema12'] = ta.trend.EMAIndicator(df['close'], window=12).ema_indicator()
+    df['ema26'] = ta.trend.EMAIndicator(df['close'], window=26).ema_indicator()
+    df['ema50'] = ta.trend.EMAIndicator(df['close'], window=50).ema_indicator()
+    df['ema100'] = ta.trend.EMAIndicator(df['close'], window=100).ema_indicator()
+    
+    # 5. 볼린저 밴드
     bollinger = ta.volatility.BollingerBands(df['close'])
     df['bb_upper'] = bollinger.bollinger_hband()
     df['bb_middle'] = bollinger.bollinger_mavg()
     df['bb_lower'] = bollinger.bollinger_lband()
     df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
     
-    # 5. 스토캐스틱 오실레이터
+    # 6. 스토캐스틱 오실레이터
     stoch = ta.momentum.StochasticOscillator(df['high'], df['low'], df['close'])
     df['stoch_k'] = stoch.stoch()
     df['stoch_d'] = stoch.stoch_signal()
     
+    # 7. ATR (Average True Range) - 변동성 측정
+    df['atr'] = ta.volatility.AverageTrueRange(df['high'], df['low'], df['close'], window=14).average_true_range()
+    
+    # 8. OBV (On Balance Volume) - 거래량 기반 지표
+    df['obv'] = ta.volume.OnBalanceVolumeIndicator(df['close'], df['volume']).on_balance_volume()
+    df['obv_ma'] = ta.trend.SMAIndicator(df['obv'], window=20).sma_indicator()
+    
+    # 9. ADX (Average Directional Index) - 추세 강도 측정
+    adx = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=14)
+    df['adx'] = adx.adx()
+    df['adx_pos'] = adx.adx_pos()
+    df['adx_neg'] = adx.adx_neg()
+    
+    # 10. 일목균형표 (Ichimoku Cloud) - 중장기 트레이드에 매우 유용
+    ichimoku = ta.trend.IchimokuIndicator(df['high'], df['low'])
+    df['ichimoku_a'] = ichimoku.ichimoku_a()  # 선행스팬A (구름 상단/하단)
+    df['ichimoku_b'] = ichimoku.ichimoku_b()  # 선행스팬B (구름 상단/하단)
+    df['ichimoku_base'] = ichimoku.ichimoku_base_line()  # 기준선
+    df['ichimoku_conversion'] = ichimoku.ichimoku_conversion_line()  # 전환선
+    
+    # 11. 피보나치 되돌림 레벨 계산 (최근 52주 기준)
+    recent_high = df['high'].tail(52).max()
+    recent_low = df['low'].tail(52).min()
+    diff = recent_high - recent_low
+    
+    df['fib_236'] = recent_high - 0.236 * diff
+    df['fib_382'] = recent_high - 0.382 * diff
+    df['fib_500'] = recent_high - 0.500 * diff
+    df['fib_618'] = recent_high - 0.618 * diff
+    
+    # 12. 공포/탐욕 지수 계산 (간이버전 - RSI, 볼린저밴드 위치, 거래량 기반)
+    df['fear_greed'] = calculate_fear_greed_index(df)
+    
     return df
+
+# 공포/탐욕 지수 계산 (0-100, 0=극단적 공포, 100=극단적 탐욕)
+def calculate_fear_greed_index(df):
+    fear_greed = pd.Series(index=df.index, dtype=float)
+    
+    for i in range(len(df)):
+        if i < 20:  # 최소 20일 데이터 필요
+            fear_greed.iloc[i] = 50
+            continue
+            
+        # RSI 기여도 (30%)
+        rsi = df['rsi'].iloc[i]
+        rsi_score = rsi if not pd.isna(rsi) else 50
+        
+        # 볼린저밴드 위치 기여도 (30%)
+        bb_upper = df['bb_upper'].iloc[i]
+        bb_lower = df['bb_lower'].iloc[i]
+        price = df['close'].iloc[i]
+        if not pd.isna(bb_upper) and not pd.isna(bb_lower) and bb_upper != bb_lower:
+            bb_position = ((price - bb_lower) / (bb_upper - bb_lower)) * 100
+        else:
+            bb_position = 50
+        
+        # 거래량 추세 기여도 (20%)
+        vol_ma = df['volume'].iloc[max(0, i-20):i].mean()
+        current_vol = df['volume'].iloc[i]
+        vol_ratio = (current_vol / vol_ma * 50) if vol_ma > 0 else 50
+        vol_score = min(100, max(0, vol_ratio))
+        
+        # 추세 강도 기여도 (20%)
+        ma20 = df['ma20'].iloc[i]
+        ma50 = df['ma50'].iloc[i]
+        if not pd.isna(ma20) and not pd.isna(ma50) and ma50 != 0:
+            trend_score = ((ma20 - ma50) / ma50 * 500) + 50
+            trend_score = min(100, max(0, trend_score))
+        else:
+            trend_score = 50
+        
+        # 종합 점수
+        fear_greed.iloc[i] = (rsi_score * 0.3 + bb_position * 0.3 + 
+                             vol_score * 0.2 + trend_score * 0.2)
+    
+    return fear_greed
 
 # 시장 위치 분석
 def analyze_market_position(df):
@@ -232,52 +512,471 @@ def analyze_market_position(df):
         "score": stoch_score
     }
     
-    # 종합 점수 계산
-    total_score = rsi_score + macd_score + ma_score + bb_score + stoch_score
+    # 6. EMA 추세 분석 (중장기 투자에 중요)
+    ema12 = latest['ema12']
+    ema26 = latest['ema26']
+    ema50 = latest['ema50']
+    ema100 = latest['ema100']
     
-    # 최종 투자 판단
-    if total_score >= 4:
-        final_position = "적극매수"
-        recommendation = "대부분의 지표가 강한 매수 신호를 보내고 있습니다. 적극매수 구간으로 판단됩니다."
-    elif total_score >= 2:
-        final_position = "매수"
-        recommendation = "여러 지표가 매수 신호를 보내고 있습니다. 매수 구간으로 판단됩니다."
-    elif total_score <= -4:
-        final_position = "적극매도"
-        recommendation = "대부분의 지표가 강한 매도 신호를 보내고 있습니다. 적극매도 구간으로 판단됩니다."
-    elif total_score <= -2:
-        final_position = "매도"
-        recommendation = "여러 지표가 매도 신호를 보내고 있습니다. 매도 구간으로 판단됩니다."
+    ema_text = []
+    if price > ema12 > ema26 > ema50 > ema100:
+        ema_signal = "강한 상승 추세 (완벽한 정배열)"
+        ema_score = 2
+        ema_text.append("모든 지수이동평균선이 완벽한 상승 정배열")
+    elif price > ema50 and ema50 > ema100:
+        ema_signal = "중장기 상승 추세"
+        ema_score = 1.5
+        ema_text.append("중장기 지수이동평균선 상승 배열")
+    elif price < ema12 < ema26 < ema50 < ema100:
+        ema_signal = "강한 하락 추세 (완벽한 역배열)"
+        ema_score = -2
+        ema_text.append("모든 지수이동평균선이 완벽한 하락 역배열")
+    elif price < ema50 and ema50 < ema100:
+        ema_signal = "중장기 하락 추세"
+        ema_score = -1.5
+        ema_text.append("중장기 지수이동평균선 하락 배열")
     else:
-        final_position = "관망"
-        recommendation = "혼합된 신호가 보이거나 중립적인 지표가 많습니다. 관망하며 추세 변화를 지켜보는 것이 좋습니다."
+        ema_signal = "횡보 또는 추세 전환 중"
+        ema_score = 0
+        ema_text.append("지수이동평균선이 혼재된 상태")
     
-    return final_position, indicators, recommendation, total_score
-
-# HTML 이메일 형식으로 결과 포맷팅
-def format_analysis_result_html(final_position, indicators, recommendation, price, date_str):
-    position_colors = {
-        "적극매수": "#1B5E20",  # 진한 녹색
-        "매수": "#4CAF50",      # 녹색
-        "관망": "#FFC107",      # 노란색
-        "매도": "#F44336",      # 빨간색
-        "적극매도": "#B71C1C"   # 진한 빨간색
+    indicators["EMA 추세"] = {
+        "value": f"가격: {price:.2f}, 12일: {ema12:.2f}, 26일: {ema26:.2f}, 50일: {ema50:.2f}, 100일: {ema100:.2f}",
+        "signal": ema_signal,
+        "details": ", ".join(ema_text),
+        "score": ema_score
     }
     
-    position_color = position_colors.get(final_position, "#757575")
+    # 7. 거래량 분석 (OBV)
+    obv = latest['obv']
+    obv_ma = latest['obv_ma']
+    obv_prev = df['obv'].iloc[-2]
     
-    # 표시할 심볼 결정
-    position_symbol = "↑↑"  # 기본값
-    if final_position == "적극매수":
-        position_symbol = "↑↑"
-    elif final_position == "매수":
-        position_symbol = "↑"
-    elif final_position == "관망":
-        position_symbol = "↔"
-    elif final_position == "매도":
-        position_symbol = "↓"
-    elif final_position == "적극매도":
-        position_symbol = "↓↓"
+    if obv > obv_ma and obv > obv_prev:
+        obv_signal = "강한 매수세 유입"
+        obv_score = 1.5
+    elif obv > obv_ma:
+        obv_signal = "매수세 우세"
+        obv_score = 1
+    elif obv < obv_ma and obv < obv_prev:
+        obv_signal = "강한 매도세 유입"
+        obv_score = -1.5
+    elif obv < obv_ma:
+        obv_signal = "매도세 우세"
+        obv_score = -1
+    else:
+        obv_signal = "거래량 중립"
+        obv_score = 0
+    
+    indicators["거래량(OBV)"] = {
+        "value": f"OBV: {obv:,.0f}, OBV MA: {obv_ma:,.0f}",
+        "signal": obv_signal,
+        "score": obv_score
+    }
+    
+    # 8. 추세 강도 분석 (ADX)
+    adx = latest['adx']
+    adx_pos = latest['adx_pos']
+    adx_neg = latest['adx_neg']
+    
+    if adx > 50:
+        trend_strength = "매우 강한 추세"
+    elif adx > 25:
+        trend_strength = "강한 추세"
+    elif adx > 20:
+        trend_strength = "보통 추세"
+    else:
+        trend_strength = "약한 추세 (횡보)"
+    
+    if adx > 25 and adx_pos > adx_neg:
+        adx_signal = f"{trend_strength} - 상승 방향"
+        adx_score = 1.5 if adx > 40 else 1
+    elif adx > 25 and adx_neg > adx_pos:
+        adx_signal = f"{trend_strength} - 하락 방향"
+        adx_score = -1.5 if adx > 40 else -1
+    else:
+        adx_signal = f"{trend_strength}"
+        adx_score = 0
+    
+    indicators["추세강도(ADX)"] = {
+        "value": f"ADX: {adx:.2f}, +DI: {adx_pos:.2f}, -DI: {adx_neg:.2f}",
+        "signal": adx_signal,
+        "score": adx_score
+    }
+    
+    # 9. 일목균형표 분석 (중장기 투자의 핵심 지표)
+    ichimoku_a = latest['ichimoku_a']
+    ichimoku_b = latest['ichimoku_b']
+    ichimoku_base = latest['ichimoku_base']
+    ichimoku_conversion = latest['ichimoku_conversion']
+    
+    # 구름 위치 판단
+    cloud_top = max(ichimoku_a, ichimoku_b) if not pd.isna(ichimoku_a) and not pd.isna(ichimoku_b) else price
+    cloud_bottom = min(ichimoku_a, ichimoku_b) if not pd.isna(ichimoku_a) and not pd.isna(ichimoku_b) else price
+    
+    ichimoku_details = []
+    if price > cloud_top:
+        ichimoku_signal = "강한 상승 추세 (구름 위)"
+        ichimoku_score = 2
+        ichimoku_details.append("가격이 구름 위에 위치 - 강세장")
+        if ichimoku_conversion > ichimoku_base:
+            ichimoku_details.append("전환선이 기준선 위 - 추가 상승 여력")
+    elif price > cloud_bottom and price < cloud_top:
+        ichimoku_signal = "중립 구간 (구름 안)"
+        ichimoku_score = 0
+        ichimoku_details.append("가격이 구름 안에 위치 - 방향성 불확실")
+    elif price < cloud_bottom:
+        ichimoku_signal = "강한 하락 추세 (구름 아래)"
+        ichimoku_score = -2
+        ichimoku_details.append("가격이 구름 아래 위치 - 약세장")
+        if ichimoku_conversion < ichimoku_base:
+            ichimoku_details.append("전환선이 기준선 아래 - 추가 하락 가능")
+    else:
+        ichimoku_signal = "데이터 불충분"
+        ichimoku_score = 0
+        ichimoku_details.append("일목균형표 계산 중")
+    
+    indicators["일목균형표"] = {
+        "value": f"구름 상단: {cloud_top:.2f}, 구름 하단: {cloud_bottom:.2f}",
+        "signal": ichimoku_signal,
+        "details": ", ".join(ichimoku_details),
+        "score": ichimoku_score
+    }
+    
+    # 10. 변동성 분석 (ATR)
+    atr = latest['atr']
+    atr_pct = (atr / price * 100) if price > 0 else 0
+    
+    if atr_pct > 5:
+        volatility_signal = "매우 높은 변동성 (주의)"
+        volatility_score = -0.5  # 중장기 투자자는 높은 변동성 주의
+    elif atr_pct > 3:
+        volatility_signal = "높은 변동성"
+        volatility_score = -0.25
+    elif atr_pct > 1.5:
+        volatility_signal = "보통 변동성"
+        volatility_score = 0
+    else:
+        volatility_signal = "낮은 변동성 (안정적)"
+        volatility_score = 0.5
+    
+    indicators["변동성(ATR)"] = {
+        "value": f"ATR: {atr:.2f} ({atr_pct:.2f}%)",
+        "signal": volatility_signal,
+        "score": volatility_score
+    }
+    
+    # 11. 공포/탐욕 지수
+    fear_greed = latest['fear_greed']
+    
+    if fear_greed >= 75:
+        fg_signal = "극단적 탐욕 (매도 타이밍 주시)"
+        fg_score = -2
+    elif fear_greed >= 60:
+        fg_signal = "탐욕 (차익실현 고려)"
+        fg_score = -1
+    elif fear_greed >= 40:
+        fg_signal = "중립"
+        fg_score = 0
+    elif fear_greed >= 25:
+        fg_signal = "공포 (매수 기회 포착)"
+        fg_score = 1
+    else:
+        fg_signal = "극단적 공포 (적극 매수 기회)"
+        fg_score = 2
+    
+    indicators["공포/탐욕지수"] = {
+        "value": f"{fear_greed:.1f} / 100",
+        "signal": fg_signal,
+        "score": fg_score
+    }
+    
+    # 12. 피보나치 레벨 분석
+    fib_236 = latest['fib_236']
+    fib_382 = latest['fib_382']
+    fib_500 = latest['fib_500']
+    fib_618 = latest['fib_618']
+    
+    fib_details = []
+    if price > fib_236:
+        fib_signal = "강세 구간 (23.6% 되돌림 위)"
+        fib_score = 1
+        fib_details.append("가격이 주요 되돌림 레벨 위에서 지지")
+    elif price > fib_382:
+        fib_signal = "중립 구간 (38.2% 되돌림 위)"
+        fib_score = 0.5
+        fib_details.append("38.2% 레벨에서 지지")
+    elif price > fib_500:
+        fib_signal = "약세 전환 구간 (50% 되돌림 위)"
+        fib_score = 0
+        fib_details.append("50% 되돌림 레벨 근처")
+    elif price > fib_618:
+        fib_signal = "약세 구간 (61.8% 되돌림 위)"
+        fib_score = -0.5
+        fib_details.append("61.8% 황금 되돌림 레벨 근처")
+    else:
+        fib_signal = "깊은 되돌림 구간 (매수 기회)"
+        fib_score = 1
+        fib_details.append("깊은 되돌림 - 반등 시 매수 기회")
+    
+    indicators["피보나치"] = {
+        "value": f"23.6%: ${fib_236:.2f}, 38.2%: ${fib_382:.2f}, 50%: ${fib_500:.2f}, 61.8%: ${fib_618:.2f}",
+        "signal": fib_signal,
+        "details": ", ".join(fib_details),
+        "score": fib_score
+    }
+    
+    # 4년 주기 분석
+    cycle_info = analyze_bitcoin_cycle()
+    if cycle_info:
+        indicators["4년 주기"] = {
+            "value": f"{cycle_info['cycle_position_pct']:.1f}% 경과 ({cycle_info['days_since_halving']}일)",
+            "signal": cycle_info['cycle_phase'],
+            "score": cycle_info['phase_score'],
+            "details": f"최근 반감기: {cycle_info['last_halving'].strftime('%Y-%m-%d')}"
+        }
+    
+    # 고점 근접도 분석
+    peak_info = analyze_peak_proximity(df, indicators)
+    if peak_info:
+        indicators["고점 근접도"] = {
+            "value": f"{peak_info['peak_score']:.0f}/100점",
+            "signal": peak_info['peak_status'],
+            "score": -(peak_info['peak_score'] / 20),  # 0~100 -> 0~-5 점수로 변환 (고점 = 매도 신호)
+            "details": f"52주고가: {peak_info['details']['52주 최고가 대비']}, 200일선: {peak_info['details']['200일선 괴리율']}"
+        }
+    
+    # 종합 점수 계산 (가중치 적용)
+    base_score = (
+        rsi_score * 0.8 +           # RSI
+        macd_score * 1.0 +          # MACD (중요)
+        ma_score * 1.2 +            # 이동평균선 (매우 중요)
+        bb_score * 0.8 +            # 볼린저밴드
+        stoch_score * 0.6 +         # 스토캐스틱
+        ema_score * 1.2 +           # EMA (중장기 투자에 중요)
+        obv_score * 1.0 +           # 거래량
+        adx_score * 0.8 +           # 추세 강도
+        ichimoku_score * 1.5 +      # 일목균형표 (중장기 투자에 매우 중요)
+        volatility_score * 0.5 +    # 변동성
+        fg_score * 1.0 +            # 공포/탐욕 지수
+        fib_score * 0.6             # 피보나치
+    )
+    
+    # 사이클 및 고점 근접도 반영 (매우 중요!)
+    cycle_score = cycle_info['phase_score'] * 2.0 if cycle_info else 0  # 사이클 점수 가중치 높임
+    peak_penalty = -(peak_info['peak_score'] / 10) if peak_info else 0  # 고점 근접 시 큰 감점
+    
+    total_score = base_score + cycle_score + peak_penalty
+    
+    # 고점 근접 시 강제 매도 신호 (최우선 판단)
+    # 고점 근접도가 매우 높으면 다른 지표와 무관하게 매도 권장
+    if peak_info and peak_info['peak_score'] >= 80:
+        final_position = "🔴 적극 매도 (고점 경고!)"
+        position_category = "STRONG_SELL"
+        recommendation = f"⚠️ 고점 근접도 {peak_info['peak_score']:.0f}점! 역사적으로 이런 과열 신호는 곧 조정이 옵니다. {peak_info['sell_recommendation']}"
+        action = "즉시 분할 매도 시작 (보유 물량의 80-100%)"
+    elif peak_info and peak_info['peak_score'] >= 60:
+        final_position = "🔴 매도 (과열 경고)"
+        position_category = "SELL"
+        recommendation = f"⚠️ 고점 근접도 {peak_info['peak_score']:.0f}점! 심각한 과열 구간입니다. {peak_info['sell_recommendation']}"
+        action = "적극 분할 매도 (보유 물량의 50-70%)"
+    elif peak_info and peak_info['peak_score'] >= 40:
+        # 고점 근접 시 매도 신호 강화
+        if total_score > 0:  # 원래 매수 신호였어도
+            final_position = "🟠 분할 매도 시작"
+            position_category = "WEAK_SELL"
+            recommendation = f"고점 근접도 {peak_info['peak_score']:.0f}점! 과열 구간 진입. {peak_info['sell_recommendation']}"
+            action = "분할 매도 시작 (보유 물량의 30-50%)"
+        else:
+            final_position = "🟠 약한 매도"
+            position_category = "WEAK_SELL"
+            recommendation = f"고점 근접도 {peak_info['peak_score']:.0f}점! 과열 신호 감지. {peak_info['sell_recommendation']}"
+            action = "분할 매도로 리스크 축소"
+    # 일반적인 판단 (고점 근접도가 낮을 때)
+    elif total_score >= 10:
+        final_position = "🟢 적극 매수 (강력 추천)"
+        position_category = "STRONG_BUY"
+        recommendation = "대부분의 지표가 매우 강한 매수 신호를 보내고 있습니다. 중장기적으로 상승 추세가 명확하며, 적극적인 매수 진입을 권장합니다."
+        action = "분할 매수 또는 일괄 매수 진행"
+    elif total_score >= 6:
+        final_position = "🟢 매수 (추천)"
+        position_category = "BUY"
+        recommendation = "다수의 지표가 매수 신호를 보내고 있습니다. 상승 추세가 형성되고 있으며, 매수 진입을 고려할 시점입니다."
+        action = "분할 매수로 포지션 구축"
+    elif total_score >= 3:
+        final_position = "🟡 약한 매수 (신중)"
+        position_category = "WEAK_BUY"
+        recommendation = "일부 지표가 매수 신호를 보내고 있으나 확신이 부족합니다. 소량 매수 후 추가 신호 확인을 권장합니다."
+        action = "소량 매수 후 관망, 추가 상승 시 증액"
+    elif total_score >= 1:
+        final_position = "⚪ 중립-매수 편향"
+        position_category = "NEUTRAL_BUY"
+        recommendation = "매수 신호가 약하게 감지됩니다. 명확한 추세 확인 후 진입하는 것이 안전합니다."
+        action = "관망 우선, 강한 매수 신호 포착 시 진입"
+    elif total_score >= -1:
+        final_position = "⚪ 중립 (관망)"
+        position_category = "NEUTRAL"
+        recommendation = "혼합된 신호가 나타나고 있으며 방향성이 불확실합니다. 명확한 추세가 나타날 때까지 관망을 권장합니다."
+        action = "현재 포지션 유지, 신규 진입 보류"
+    elif total_score >= -3:
+        final_position = "⚪ 중립-매도 편향"
+        position_category = "NEUTRAL_SELL"
+        recommendation = "매도 신호가 약하게 감지됩니다. 보유 중이라면 일부 차익실현을 고려할 수 있습니다."
+        action = "일부 차익실현 고려, 손절매 라인 점검"
+    elif total_score >= -6:
+        final_position = "🟠 약한 매도"
+        position_category = "WEAK_SELL"
+        recommendation = "일부 지표가 매도 신호를 보내고 있습니다. 보유 중이라면 일부 매도를 고려하고, 신규 진입은 피해야 합니다."
+        action = "분할 매도로 리스크 축소, 신규 매수 금지"
+    elif total_score >= -10:
+        final_position = "🔴 매도 (권장)"
+        position_category = "SELL"
+        recommendation = "다수의 지표가 매도 신호를 보내고 있습니다. 하락 추세가 형성되고 있으며, 보유 자산 매도를 권장합니다."
+        action = "보유 중이라면 분할 매도 진행"
+    else:
+        final_position = "🔴 적극 매도 (강력 권장)"
+        position_category = "STRONG_SELL"
+        recommendation = "대부분의 지표가 매우 강한 매도 신호를 보내고 있습니다. 중장기적으로 하락 추세가 명확하며, 즉시 매도를 권장합니다."
+        action = "보유 중이라면 즉시 매도, 추가 하락 대비"
+    
+    # 목표가 및 손절가 계산
+    targets = calculate_price_targets(df, latest, position_category)
+    
+    return final_position, indicators, recommendation, total_score, action, targets, cycle_info, peak_info
+
+# 목표가 및 손절가 계산
+def calculate_price_targets(df, latest, position_category):
+    price = latest['close']
+    atr = latest['atr']
+    bb_upper = latest['bb_upper']
+    bb_lower = latest['bb_lower']
+    ma200 = latest['ma200']
+    fib_236 = latest['fib_236']
+    fib_618 = latest['fib_618']
+    
+    targets = {}
+    
+    if position_category in ["STRONG_BUY", "BUY", "WEAK_BUY", "NEUTRAL_BUY"]:
+        # 매수 시나리오
+        targets["entry_zone"] = f"${price * 0.98:.2f} - ${price * 1.02:.2f}"
+        targets["target_1"] = f"${min(bb_upper, price * 1.05):.2f} (단기 목표 +5%)"
+        targets["target_2"] = f"${price * 1.10:.2f} (중기 목표 +10%)"
+        targets["target_3"] = f"${price * 1.20:.2f} (장기 목표 +20%)"
+        targets["stop_loss"] = f"${max(bb_lower, price * 0.92, ma200 * 0.98):.2f} (손절 -8%)"
+        targets["risk_reward"] = "1:2.5 (권장)"
+        
+    elif position_category in ["STRONG_SELL", "SELL", "WEAK_SELL", "NEUTRAL_SELL"]:
+        # 매도 시나리오
+        targets["exit_zone"] = f"${price * 0.98:.2f} - ${price * 1.02:.2f}"
+        targets["support_1"] = f"${max(bb_lower, price * 0.95):.2f} (1차 지지선 -5%)"
+        targets["support_2"] = f"${price * 0.90:.2f} (2차 지지선 -10%)"
+        targets["support_3"] = f"${price * 0.85:.2f} (3차 지지선 -15%)"
+        targets["reentry_zone"] = f"${min(fib_618, price * 0.85):.2f} 근처 (재진입 고려 구간)"
+        
+    else:
+        # 중립 시나리오
+        targets["current_range"] = f"${bb_lower:.2f} - ${bb_upper:.2f}"
+        targets["watch_level_up"] = f"${bb_upper:.2f} 돌파 시 매수 신호"
+        targets["watch_level_down"] = f"${bb_lower:.2f} 이탈 시 매도 신호"
+        targets["key_support"] = f"${ma200:.2f} (200일 이평선)"
+    
+    return targets
+
+# 지표 점수에 따른 색상 반환
+def get_indicator_color(score):
+    if score > 1:
+        return "#1B5E20"  # 매우 긍정적
+    elif score > 0:
+        return "#4CAF50"  # 긍정적
+    elif score < -1:
+        return "#B71C1C"  # 매우 부정적
+    elif score < 0:
+        return "#F44336"  # 부정적
+    else:
+        return "#757575"  # 중립
+
+# 간단한 지표 HTML 생성
+def create_indicator_html(title, data, color):
+    return f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            {title}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="70%" style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        현재 수치: <span style="font-family: 'Courier New', monospace; font-weight: bold;">{data.get('value', 'N/A')}</span>
+                                                    </td>
+                                                    <td width="30%" style="font-size: 14px; text-align: right; font-weight: bold; color: {color};">
+                                                        {data.get('signal', 'N/A')}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    """
+
+# 상세 정보가 있는 지표 HTML 생성
+def create_indicator_html_with_details(title, data, color):
+    return f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #f5f5f5; font-weight: bold; font-size: 16px; border-bottom: 1px solid #f0f0f0;">
+                                            {title}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #555555; padding: 5px 0;">
+                                                        <span style="font-family: 'Courier New', monospace; font-weight: bold;">{data.get('value', 'N/A')}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; font-weight: bold; color: {color}; padding: 5px 0;">
+                                                        {data.get('signal', 'N/A')}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 5px 0; font-style: italic;">
+                                                        {data.get('details', '')}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+    """
+
+# HTML 이메일 형식으로 결과 포맷팅
+def format_analysis_result_html(final_position, indicators, recommendation, price, date_str, action, targets, total_score, cycle_info, peak_info):
+    # 색상 결정 (이모지 포함 문자열 처리)
+    if "적극 매수" in final_position and "강력" in final_position:
+        position_color = "#0D5E20"  # 매우 진한 녹색
+    elif "매수" in final_position and "추천" in final_position:
+        position_color = "#1B5E20"  # 진한 녹색
+    elif "약한 매수" in final_position:
+        position_color = "#4CAF50"  # 녹색
+    elif "중립-매수" in final_position:
+        position_color = "#7CB342"  # 연한 녹색
+    elif "중립" in final_position and "매도" not in final_position and "매수" not in final_position:
+        position_color = "#9E9E9E"  # 회색
+    elif "중립-매도" in final_position:
+        position_color = "#FF9800"  # 주황색
+    elif "약한 매도" in final_position:
+        position_color = "#FF5722"  # 진한 주황색
+    elif "매도" in final_position and "권장" in final_position:
+        position_color = "#F44336"  # 빨간색
+    elif "적극 매도" in final_position:
+        position_color = "#B71C1C"  # 매우 진한 빨간색
+    else:
+        position_color = "#757575"  # 기본 회색
     
     html = f"""
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -296,8 +995,9 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         <!-- 헤더 -->
                         <tr>
                             <td align="center" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
-                                <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">비트코인(BTC) 기술적 분석 리포트</h1>
-                                <p style="color: #ffffff; opacity: 0.8; margin: 5px 0;">{date_str}</p>
+                                <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">📈 비트코인(BTC) 중장기 투자 분석</h1>
+                                <p style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">12개 핵심 지표 종합 분석 리포트</p>
+                                <p style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">{date_str}</p>
                             </td>
                         </tr>
                         
@@ -323,11 +1023,14 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
                                         <td align="center" style="padding: 25px 30px; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
-                                            <table border="0" cellpadding="0" cellspacing="0" width="80%">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="90%">
                                                 <tr>
-                                                    <td align="center" style="padding: 15px; border-radius: 50px; background-color: {position_color};">
-                                                        <p style="margin: 0; font-size: 22px; font-weight: bold; color: #ffffff;">
-                                                            {position_symbol} {final_position} {position_symbol}
+                                                    <td align="center" style="padding: 20px; border-radius: 12px; background-color: {position_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                        <p style="margin: 0; font-size: 26px; font-weight: bold; color: #ffffff;">
+                                                            {final_position}
+                                                        </p>
+                                                        <p style="margin: 10px 0 0 0; font-size: 14px; color: #ffffff; opacity: 0.9;">
+                                                            종합 점수: {total_score:.1f}점
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -336,7 +1039,16 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                                 <tr>
                                                     <td style="padding: 15px; background-color: #f9f9f9; border-left: 4px solid {position_color}; border-radius: 4px;">
                                                         <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
-                                                            <strong>투자 판단 요약:</strong> {recommendation}
+                                                            <strong>💡 투자 판단:</strong> {recommendation}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 15px;">
+                                                <tr>
+                                                    <td style="padding: 15px; background-color: #E3F2FD; border-left: 4px solid #2196F3; border-radius: 4px;">
+                                                        <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #333333;">
+                                                            <strong>🎯 권장 행동:</strong> {action}
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -344,6 +1056,165 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                         </td>
                                     </tr>
                                 </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 4년 주기 및 고점 분석 (최우선 표시) -->
+                        <tr>
+                            <td style="padding: 25px 30px; background-color: #FFF3E0; border-top: 3px solid #FF9800;">
+                                <h2 style="color: #E65100; font-size: 22px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #FFB74D;">
+                                    🔄 비트코인 4년 주기 분석
+                                </h2>
+    """
+    
+    # 4년 주기 정보
+    if cycle_info:
+        cycle_color = "#4CAF50" if cycle_info['phase_score'] > 0 else "#FF5722"
+        days_since = cycle_info['days_since_halving']
+        cycle_pct = cycle_info['cycle_position_pct']
+        
+        html += f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; background-color: #ffffff; border-radius: 8px; border: 2px solid {cycle_color};">
+                                    <tr>
+                                        <td style="padding: 20px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 16px; font-weight: bold; color: #333333; padding-bottom: 10px;">
+                                                        📅 사이클 위치: {cycle_info['cycle_phase']}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #666666; padding: 5px 0;">
+                                                        • 최근 반감기: {cycle_info['last_halving'].strftime('%Y년 %m월 %d일')} ({days_since}일 경과)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 14px; color: #666666; padding: 5px 0;">
+                                                        • 사이클 진행률: {cycle_pct:.1f}% (4년 주기 기준)
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 15px 0 5px 0;">
+                                                        <div style="width: 100%; height: 30px; background-color: #E0E0E0; border-radius: 15px; overflow: hidden;">
+                                                            <div style="width: {min(100, cycle_pct):.1f}%; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #FF5722 100%); display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: #ffffff; font-weight: bold; font-size: 12px;">
+                                                                {cycle_pct:.1f}%
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        """
+    
+    # 고점 근접도 정보
+    if peak_info:
+        peak_score = peak_info['peak_score']
+        if peak_score >= 80:
+            peak_bg_color = "#FFEBEE"
+            peak_border_color = "#B71C1C"
+        elif peak_score >= 60:
+            peak_bg_color = "#FFF3E0"
+            peak_border_color = "#E65100"
+        elif peak_score >= 40:
+            peak_bg_color = "#FFF9C4"
+            peak_border_color = "#F57F17"
+        else:
+            peak_bg_color = "#E8F5E9"
+            peak_border_color = "#2E7D32"
+        
+        html += f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; background-color: {peak_bg_color}; border-radius: 8px; border: 3px solid {peak_border_color};">
+                                    <tr>
+                                        <td style="padding: 20px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 18px; font-weight: bold; color: {peak_border_color}; padding-bottom: 10px;">
+                                                        ⚠️ 고점 근접도: {peak_score:.0f}/100점
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 16px; font-weight: bold; color: {peak_border_color}; padding: 10px 0;">
+                                                        {peak_info['peak_status']}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 15px; color: #333333; padding: 10px 0; background-color: rgba(255,255,255,0.7); border-radius: 6px; padding: 15px;">
+                                                        <strong>🎯 매도 권장사항:</strong> {peak_info['sell_recommendation']}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding-top: 15px;">
+                                                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📈 {peak_info['details']['52주 최고가 대비']}
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📊 {peak_info['details']['200일선 괴리율']}
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    🔥 RSI 과열: {peak_info['details']['RSI 과열 일수']}
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    📍 볼린저 상단: {peak_info['details']['볼린저 상단 체류']}
+                                                                </td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td style="font-size: 13px; color: #666666; padding: 3px 0;">
+                                                                    💹 거래량: {peak_info['details']['거래량 배수']}
+                                                                </td>
+                                                            </tr>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- 가격 목표 및 전략 -->
+                        <tr>
+                            <td style="padding: 25px 30px; background-color: #f9f9f9;">
+                                <h2 style="color: #333333; font-size: 20px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                                    📊 가격 목표 및 전략
+                                </h2>
+    """
+    
+    # 가격 목표 표시
+    for key, value in targets.items():
+        key_display = key.replace("_", " ").title()
+        key_emoji = "🎯" if "target" in key else "🛡️" if "stop" in key else "📍" if "entry" in key or "exit" in key else "📉" if "support" in key else "👀" if "watch" in key else "🔄" if "reentry" in key else "📊"
+        
+        html += f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 12px;">
+                                    <tr>
+                                        <td style="padding: 12px 15px; background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 6px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td width="40%" style="font-size: 13px; color: #666666; font-weight: 600;">
+                                                        {key_emoji} {key_display.replace("_", " ")}
+                                                    </td>
+                                                    <td width="60%" style="font-size: 14px; color: #333333; font-weight: bold; text-align: right;">
+                                                        {value}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        """
+    
+    html += """
                             </td>
                         </tr>
                         
@@ -559,18 +1430,71 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                 </table>
         """
     
+    # 새로운 지표들 추가
+    
+    # EMA 추세 지표
+    ema_data = indicators.get("EMA 추세", {})
+    if ema_data:
+        ema_score = ema_data.get('score', 0)
+        ema_color = get_indicator_color(ema_score)
+        html += create_indicator_html("EMA 추세 (지수이동평균)", ema_data, ema_color)
+    
+    # 거래량(OBV) 지표
+    obv_data = indicators.get("거래량(OBV)", {})
+    if obv_data:
+        obv_score = obv_data.get('score', 0)
+        obv_color = get_indicator_color(obv_score)
+        html += create_indicator_html("거래량 분석 (OBV)", obv_data, obv_color)
+    
+    # 추세강도(ADX) 지표
+    adx_data = indicators.get("추세강도(ADX)", {})
+    if adx_data:
+        adx_score = adx_data.get('score', 0)
+        adx_color = get_indicator_color(adx_score)
+        html += create_indicator_html("추세 강도 (ADX)", adx_data, adx_color)
+    
+    # 일목균형표 지표
+    ichimoku_data = indicators.get("일목균형표", {})
+    if ichimoku_data:
+        ichimoku_score = ichimoku_data.get('score', 0)
+        ichimoku_color = get_indicator_color(ichimoku_score)
+        html += create_indicator_html_with_details("일목균형표 (Ichimoku Cloud)", ichimoku_data, ichimoku_color)
+    
+    # 변동성(ATR) 지표
+    atr_data = indicators.get("변동성(ATR)", {})
+    if atr_data:
+        atr_score = atr_data.get('score', 0)
+        atr_color = get_indicator_color(atr_score)
+        html += create_indicator_html("변동성 (ATR)", atr_data, atr_color)
+    
+    # 공포/탐욕 지수
+    fg_data = indicators.get("공포/탐욕지수", {})
+    if fg_data:
+        fg_score = fg_data.get('score', 0)
+        fg_color = get_indicator_color(fg_score)
+        html += create_indicator_html("공포/탐욕 지수", fg_data, fg_color)
+    
+    # 피보나치 레벨
+    fib_data = indicators.get("피보나치", {})
+    if fib_data:
+        fib_score = fib_data.get('score', 0)
+        fib_color = get_indicator_color(fib_score)
+        html += create_indicator_html_with_details("피보나치 되돌림", fib_data, fib_color)
+    
     # 투자자 유의사항 및 푸터
     html += f"""
                                 <!-- 투자자 유의사항 -->
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px; background-color: #FFFDE7; border-radius: 6px; border-left: 3px solid #FFC107;">
                                     <tr>
                                         <td style="padding: 15px;">
-                                            <h3 style="margin: 0 0 10px 0; color: #555555; font-size: 16px;">투자자 유의사항</h3>
+                                            <h3 style="margin: 0 0 10px 0; color: #555555; font-size: 16px;">⚠️ 중장기 투자자를 위한 유의사항</h3>
                                             <ul style="margin: 0; padding-left: 20px; color: #555555; font-size: 13px; line-height: 1.6;">
-                                                <li>모든 기술적 분석은 참고용이며, 투자의 결과는 본인 책임임을 명심하세요.</li>
-                                                <li>과매수/과매도 구간이 반드시 즉각적인 가격 반전을 의미하지는 않습니다.</li>
-                                                <li>강한 추세에서는 지표가 과매수/과매도 상태로 장기간 유지될 수 있습니다.</li>
-                                                <li>투자금은 감당할 수 있는 범위 내에서 운용하세요.</li>
+                                                <li><strong>기술적 분석은 참고 자료:</strong> 모든 투자 판단의 결과는 본인 책임이며, 이 분석은 참고용으로만 활용하세요.</li>
+                                                <li><strong>중장기 관점 유지:</strong> 일일 변동성에 흔들리지 말고, 주요 추세와 지지/저항선을 중심으로 판단하세요.</li>
+                                                <li><strong>분할 매수/매도 전략:</strong> 한 번에 전량 매수/매도하지 말고, 여러 차례 나누어 진행하세요.</li>
+                                                <li><strong>손절매 라인 준수:</strong> 손실을 제한하기 위해 사전에 정한 손절매 라인을 반드시 지키세요.</li>
+                                                <li><strong>강한 추세의 특징:</strong> 과매수/과매도 구간이 장기간 유지될 수 있으므로, 추세의 방향성을 함께 고려하세요.</li>
+                                                <li><strong>리스크 관리:</strong> 투자금은 손실을 감당할 수 있는 범위 내에서만 운용하세요.</li>
                                             </ul>
                                         </td>
                                     </tr>
@@ -601,7 +1525,7 @@ def send_email(analysis_html):
         
         # 이메일 기본 설정
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'비트코인 일일 기술적 분석 리포트 ({datetime.now().strftime("%Y-%m-%d")})'
+        msg['Subject'] = f'📊 비트코인 중장기 투자 분석 리포트 ({datetime.now().strftime("%Y-%m-%d")})'
         msg['From'] = EMAIL_ADDRESS
         msg['To'] = RECIPIENT_EMAIL
         
@@ -652,15 +1576,24 @@ def analyze_and_send():
     current_price = df['close'].iloc[-1]
     
     # 시장 위치 분석
-    final_position, indicators, recommendation, score = analyze_market_position(df)
+    final_position, indicators, recommendation, score, action, targets, cycle_info, peak_info = analyze_market_position(df)
     
     # 현재 날짜/시간
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # 분석 결과 HTML 형식으로 포맷팅
-    analysis_html = format_analysis_result_html(final_position, indicators, recommendation, current_price, date_str)
+    analysis_html = format_analysis_result_html(final_position, indicators, recommendation, current_price, date_str, action, targets, score, cycle_info, peak_info)
+    
+    # 콘솔 출력용 텍스트 (이모지 제거)
+    position_text = final_position.replace("🟢", "").replace("🟡", "").replace("⚪", "").replace("🟠", "").replace("🔴", "").strip()
     
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 비트코인 분석 완료")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 투자 판단: {position_text} (점수: {score:.1f})")
+    if cycle_info:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 4년 주기: {cycle_info['cycle_phase']} ({cycle_info['cycle_position_pct']:.1f}%)")
+    if peak_info:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 고점 근접도: {peak_info['peak_score']:.0f}/100 - {peak_info['sell_recommendation']}")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 권장 행동: {action}")
     
     # 이메일 전송
     send_email(analysis_html)
