@@ -34,22 +34,44 @@ SMTP_PORT = 587  # TLS 포트 사용 (기존 SSL 465 대신)
 
 # 비트코인 데이터 가져오기
 def get_bitcoin_data():
-    try:
-        # Binance API 사용 (다른 거래소도 선택 가능)
-        exchange = ccxt.binance()
-        
-        # 일봉 데이터 가져오기 (최근 500일 데이터 - 사이클 분석용)
-        ohlcv = exchange.fetch_ohlcv('BTC/USDT', '1d', limit=500)
-        
-        # DataFrame으로 변환
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-        df.set_index('timestamp', inplace=True)
-        
-        return df
-    except Exception as e:
-        print(f"데이터 가져오기 오류: {e}")
-        return None
+    """
+    여러 거래소를 시도하여 비트코인 데이터를 가져옵니다.
+    Binance가 실패하면 다른 거래소를 시도합니다.
+    """
+    # 시도할 거래소 목록 (순서대로)
+    exchanges_to_try = [
+        ('kraken', 'BTC/USD'),      # Kraken (미국/유럽)
+        ('coinbase', 'BTC/USD'),    # Coinbase (미국)
+        ('bitstamp', 'BTC/USD'),    # Bitstamp (유럽)
+        ('binance', 'BTC/USDT'),    # Binance (글로벌, 일부 지역 제한)
+    ]
+    
+    for exchange_name, symbol in exchanges_to_try:
+        try:
+            print(f"[시도] {exchange_name} 거래소에서 데이터 가져오는 중...")
+            
+            # 거래소 객체 생성
+            exchange_class = getattr(ccxt, exchange_name)
+            exchange = exchange_class()
+            
+            # 일봉 데이터 가져오기 (최근 500일 데이터 - 사이클 분석용)
+            ohlcv = exchange.fetch_ohlcv(symbol, '1d', limit=500)
+            
+            # DataFrame으로 변환
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+            df.set_index('timestamp', inplace=True)
+            
+            print(f"[성공] {exchange_name}에서 데이터를 성공적으로 가져왔습니다.")
+            return df
+            
+        except Exception as e:
+            print(f"[실패] {exchange_name}: {str(e)[:100]}")
+            continue
+    
+    # 모든 거래소 시도 실패
+    print(f"[오류] 모든 거래소에서 데이터를 가져올 수 없습니다.")
+    return None
 
 # 비트코인 4년 주기 분석
 def analyze_bitcoin_cycle():
