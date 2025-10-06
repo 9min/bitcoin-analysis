@@ -6,7 +6,7 @@ import ta
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # .env 파일 로드 (AWS EC2 등에서 사용)
 try:
@@ -14,6 +14,13 @@ try:
     load_dotenv()  # .env 파일이 있으면 자동 로드
 except ImportError:
     pass  # python-dotenv가 없어도 환경 변수는 작동
+
+# 한국 시간대 설정 (UTC+9)
+KST = timezone(timedelta(hours=9))
+
+def get_kst_now():
+    """현재 한국 시간 반환"""
+    return datetime.now(KST)
 
 # 비트코인 반감기 날짜 (과거 및 예정)
 HALVING_DATES = {
@@ -84,13 +91,17 @@ def get_bitcoin_data():
 # 비트코인 4년 주기 분석
 def analyze_bitcoin_cycle():
     """현재 비트코인이 4년 주기 중 어디에 위치하는지 분석"""
-    current_date = datetime.now()
+    current_date = get_kst_now()
     
     # 가장 최근 반감기 찾기
     last_halving = None
     next_halving = None
     
-    halving_dates_sorted = sorted([datetime.strptime(date, "%Y-%m-%d") for date in HALVING_DATES.keys() if "XX" not in date])
+    # naive datetime을 aware datetime으로 변환 (KST 기준)
+    halving_dates_sorted = sorted([
+        datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=KST) 
+        for date in HALVING_DATES.keys() if "XX" not in date
+    ])
     
     for halving_date in halving_dates_sorted:
         if halving_date <= current_date:
@@ -1896,11 +1907,11 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
 # 이메일 전송 함수
 def send_email(analysis_html):
     try:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 시작...")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 시작...")
         
         # 이메일 기본 설정
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'📊 비트코인 중장기 투자 분석 리포트 ({datetime.now().strftime("%Y-%m-%d")})'
+        msg['Subject'] = f'📊 비트코인 중장기 투자 분석 리포트 ({get_kst_now().strftime("%Y-%m-%d")})'
         msg['From'] = EMAIL_ADDRESS
         msg['To'] = RECIPIENT_EMAIL
         
@@ -1922,26 +1933,26 @@ def send_email(analysis_html):
         server.send_message(msg)
         server.quit()
         
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 완료: {RECIPIENT_EMAIL}")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 완료: {RECIPIENT_EMAIL}")
         return True
     except smtplib.SMTPAuthenticationError as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 인증 오류")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 인증 오류")
         return False
     except smtplib.SMTPException as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SMTP 오류")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] SMTP 오류")
         return False
     except Exception as e:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 실패")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 이메일 전송 실패")
         return False
 
 # 메인 분석 및 이메일 전송 함수
 def analyze_and_send():
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 비트코인 분석 시작...")
+    print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 비트코인 분석 시작...")
     
     # 데이터 가져오기
     df = get_bitcoin_data()
     if df is None or df.empty:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 데이터를 가져올 수 없습니다.")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 데이터를 가져올 수 없습니다.")
         return
     
     # 기술적 지표 계산
@@ -1953,8 +1964,8 @@ def analyze_and_send():
     # 시장 위치 분석
     final_position, indicators, recommendation, score, action, targets, cycle_info, peak_info = analyze_market_position(df)
     
-    # 현재 날짜/시간
-    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # 현재 날짜/시간 (한국 시간)
+    date_str = get_kst_now().strftime("%Y-%m-%d %H:%M:%S KST")
     
     # 분석 결과 HTML 형식으로 포맷팅
     analysis_html = format_analysis_result_html(final_position, indicators, recommendation, current_price, date_str, action, targets, score, cycle_info, peak_info)
@@ -1962,20 +1973,20 @@ def analyze_and_send():
     # 콘솔 출력용 텍스트 (이모지 제거)
     position_text = final_position.replace("🟢", "").replace("🟡", "").replace("⚪", "").replace("🟠", "").replace("🔴", "").strip()
     
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 비트코인 분석 완료")
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 투자 판단: {position_text} (점수: {score:.1f})")
+    print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 비트코인 분석 완료")
+    print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 투자 판단: {position_text} (점수: {score:.1f})")
     if cycle_info:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 4년 주기: {cycle_info['cycle_phase']} ({cycle_info['cycle_position_pct']:.1f}%)")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 4년 주기: {cycle_info['cycle_phase']} ({cycle_info['cycle_position_pct']:.1f}%)")
     if peak_info:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 고점 근접도: {peak_info['peak_score']:.0f}/100 - {peak_info['sell_recommendation']}")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 고점 근접도: {peak_info['peak_score']:.0f}/100 - {peak_info['sell_recommendation']}")
     
     # 고점 예측 정보 출력 (매도 신호일 때)
     if 'predicted_peak' in targets:
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 예상 고점: {targets['predicted_peak']}")
+        print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 예상 고점: {targets['predicted_peak']}")
         if 'upside_to_peak' in targets:
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 상승 여력: {targets['upside_to_peak']}")
+            print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 상승 여력: {targets['upside_to_peak']}")
     
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 권장 행동: {action}")
+    print(f"[{get_kst_now().strftime('%Y-%m-%d %H:%M:%S')}] 권장 행동: {action}")
     
     # 이메일 전송
     send_email(analysis_html)
