@@ -1505,7 +1505,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         <!-- 푸터 -->
                         <tr>
                             <td style="padding: 20px 30px; background-color: #f5f5f5; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #777777; border-top: 1px solid #eeeeee;">
-                                <p style="margin: 0;">© 2024 비트코인 기술적 분석 리포트</p>
+                                <p style="margin: 0;">© 9min 비트코인 기술적 분석 리포트</p>
                             </td>
                         </tr>
                     </table>
