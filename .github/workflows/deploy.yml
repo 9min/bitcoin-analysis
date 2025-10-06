@@ -32,6 +32,10 @@ jobs:
         pip install -r requirements.txt
     
     - name: 비트코인 분석 리포트 생성
+      env:
+        EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
       run: |
         python generate_for_github.py
     
