@@ -1,0 +1,48 @@
+name: 비트코인 분석 리포트 자동 배포
+
+on:
+  # 매일 한국시간 오전 9시에 실행 (UTC 0시)
+  schedule:
+    - cron: '0 0 * * *'
+  
+  # 수동 실행 가능
+  workflow_dispatch:
+  
+  # main 브랜치에 push될 때도 실행
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 코드 체크아웃
+      uses: actions/checkout@v3
+    
+    - name: Python 설정
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: 의존성 설치
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: 비트코인 분석 리포트 생성
+      run: |
+        python generate_for_github.py
+    
+    - name: GitHub Pages 배포
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: .
+        publish_branch: gh-pages
+        keep_files: false
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: '🤖 비트코인 분석 리포트 자동 업데이트'
+
