@@ -762,11 +762,16 @@ def analyze_market_position(df):
         fib_score * 0.6             # 피보나치
     )
     
-    # 사이클 및 고점 근접도 반영 (매우 중요!)
-    cycle_score = cycle_info['phase_score'] * 2.0 if cycle_info else 0  # 사이클 점수 가중치 높임
+    # 사이클 및 고점 근접도 반영
+    cycle_score = cycle_info['phase_score'] * 0.5 if cycle_info else 0  # 사이클 점수 가중치 낮춤 (2.0 → 0.5)
     peak_penalty = -(peak_info['peak_score'] / 10) if peak_info else 0  # 고점 근접 시 큰 감점
     
     total_score = base_score + cycle_score + peak_penalty
+    
+    # 점수 범위 정보 (참고용)
+    # 최저: -15점 (모든 지표 극단적 매도)
+    # 최고: +25점 (모든 지표 극단적 매수)
+    # 중립: 0점 (지표들이 혼재)
     
     # 고점 근접 시 강제 매도 신호 (최우선 판단)
     # 고점 근접도가 매우 높으면 다른 지표와 무관하게 매도 권장
@@ -844,6 +849,97 @@ def analyze_market_position(df):
     
     return final_position, indicators, recommendation, total_score, action, targets, cycle_info, peak_info
 
+# 고점 예측 함수 (각종 지표 기반)
+def predict_peak_price(df, latest):
+    """
+    여러 기술 지표를 종합하여 예상 고점을 계산
+    """
+    price = latest['close']
+    bb_upper = latest['bb_upper']
+    
+    # 1. 볼린저 밴드 확장 예측
+    bb_width = latest['bb_upper'] - latest['bb_lower']
+    bb_predicted_peak = bb_upper + (bb_width * 0.3)  # 밴드 폭의 30% 추가 상승 여력
+    
+    # 2. 52주 최고가 기반 예측
+    high_52w = df['high'].tail(365).max()
+    if price > high_52w * 0.95:  # 현재가가 52주 고점 근처라면
+        peak_from_52w = high_52w * 1.05  # 5% 돌파 여력
+    else:
+        peak_from_52w = high_52w * 1.02  # 2% 돌파 여력
+    
+    # 3. 최근 추세선 연장 예측
+    recent_highs = df['high'].tail(30)
+    if len(recent_highs) >= 10:
+        # 최근 30일 고점들의 상승 추세
+        recent_max = recent_highs.max()
+        # 현재가가 고점에 얼마나 가까운지에 따라
+        price_to_recent_high = (price / recent_max) * 100
+        if price_to_recent_high > 98:  # 고점 매우 근접
+            trend_peak = recent_max * 1.15  # 돌파 시 15% 상승
+        elif price_to_recent_high > 95:  # 고점 근접
+            trend_peak = recent_max * 1.12  # 12% 상승
+        else:
+            trend_peak = recent_max * 1.08  # 8% 상승
+    else:
+        trend_peak = price * 1.12
+    
+    # 4. ATR 기반 변동성 예측
+    atr = latest['atr']
+    volatility_peak = price + (atr * 4)  # ATR의 4배 상승 여력 (3→4배로 증가)
+    
+    # 5. 200일 이동평균선 대비 과열도
+    ma200 = latest['ma200']
+    price_to_ma200 = (price / ma200 - 1) * 100
+    
+    if price_to_ma200 > 80:  # 극단적 괴리
+        ma200_peak = price * 1.05  # 매우 제한적
+    elif price_to_ma200 > 50:  # 심각한 괴리
+        ma200_peak = price * 1.12  # 제한적 상승
+    elif price_to_ma200 > 30:  # 높은 괴리
+        ma200_peak = price * 1.20
+    elif price_to_ma200 > 15:  # 보통 괴리
+        ma200_peak = price * 1.30
+    else:  # 낮은 괴리
+        ma200_peak = price * 1.40  # 충분한 상승 여력
+    
+    # 6. RSI 기반 과열도 조정 (완화)
+    rsi = latest['rsi']
+    if rsi > 85:
+        rsi_multiplier = 0.85  # 극단적 과열만 크게 하향
+    elif rsi > 75:
+        rsi_multiplier = 0.95  # 과열 구간 약간 하향
+    elif rsi > 65:
+        rsi_multiplier = 1.0   # 정상
+    elif rsi > 50:
+        rsi_multiplier = 1.05  # 약간 상향
+    else:
+        rsi_multiplier = 1.15  # RSI 여유 있으면 상향 조정
+    
+    # 모든 예측값의 가중 평균
+    predicted_peak = (
+        bb_predicted_peak * 0.20 +     # 볼린저 비중 축소
+        peak_from_52w * 0.25 +         # 52주 고점 비중 증가
+        trend_peak * 0.25 +            # 추세 비중 증가
+        volatility_peak * 0.15 +       # 변동성 유지
+        ma200_peak * 0.15              # 200일선 비중 축소 (너무 높게 나옴)
+    ) * rsi_multiplier
+    
+    # 현실성 체크: 현재가의 최소 +5%, 최대 +80%
+    min_peak = price * 1.05
+    max_peak = price * 1.80
+    predicted_peak = max(min_peak, min(predicted_peak, max_peak))
+    
+    return {
+        'predicted_peak': predicted_peak,
+        'bb_peak': bb_predicted_peak,
+        'high_52w_peak': peak_from_52w,
+        'trend_peak': trend_peak,
+        'volatility_peak': volatility_peak,
+        'ma200_peak': ma200_peak,
+        'confidence': 'high' if rsi < 70 and price_to_ma200 < 30 else 'medium' if rsi < 80 else 'low'
+    }
+
 # 목표가 및 손절가 계산
 def calculate_price_targets(df, latest, position_category):
     price = latest['close']
@@ -856,22 +952,78 @@ def calculate_price_targets(df, latest, position_category):
     
     targets = {}
     
-    if position_category in ["STRONG_BUY", "BUY", "WEAK_BUY", "NEUTRAL_BUY"]:
-        # 매수 시나리오
-        targets["entry_zone"] = f"${price * 0.98:.2f} - ${price * 1.02:.2f}"
-        targets["target_1"] = f"${min(bb_upper, price * 1.05):.2f} (단기 목표 +5%)"
-        targets["target_2"] = f"${price * 1.10:.2f} (중기 목표 +10%)"
-        targets["target_3"] = f"${price * 1.20:.2f} (장기 목표 +20%)"
-        targets["stop_loss"] = f"${max(bb_lower, price * 0.92, ma200 * 0.98):.2f} (손절 -8%)"
-        targets["risk_reward"] = "1:2.5 (권장)"
+    if position_category in ["STRONG_BUY", "BUY"]:
+        # 강력 매수 시나리오 - 공격적 목표가
+        targets["entry_zone"] = f"${price * 0.97:.2f} - ${price * 1.03:.2f}"
+        targets["target_1"] = f"${price * 1.15:.2f} (1차 목표 +15%)"
+        targets["target_2"] = f"${price * 1.30:.2f} (2차 목표 +30%)"
+        targets["target_3"] = f"${price * 1.50:.2f} (3차 목표 +50%)"
+        targets["target_4"] = f"${price * 2.00:.2f} (최종 목표 +100%)"
+        targets["stop_loss"] = f"${max(bb_lower, price * 0.88, ma200 * 0.95):.2f} (손절 -12%)"
+        targets["risk_reward"] = "1:4.2 (고수익 전략)"
         
-    elif position_category in ["STRONG_SELL", "SELL", "WEAK_SELL", "NEUTRAL_SELL"]:
-        # 매도 시나리오
-        targets["exit_zone"] = f"${price * 0.98:.2f} - ${price * 1.02:.2f}"
-        targets["support_1"] = f"${max(bb_lower, price * 0.95):.2f} (1차 지지선 -5%)"
-        targets["support_2"] = f"${price * 0.90:.2f} (2차 지지선 -10%)"
-        targets["support_3"] = f"${price * 0.85:.2f} (3차 지지선 -15%)"
-        targets["reentry_zone"] = f"${min(fib_618, price * 0.85):.2f} 근처 (재진입 고려 구간)"
+    elif position_category in ["WEAK_BUY", "NEUTRAL_BUY"]:
+        # 약한 매수 시나리오 - 중간 공격적
+        targets["entry_zone"] = f"${price * 0.97:.2f} - ${price * 1.03:.2f}"
+        targets["target_1"] = f"${price * 1.10:.2f} (1차 목표 +10%)"
+        targets["target_2"] = f"${price * 1.20:.2f} (2차 목표 +20%)"
+        targets["target_3"] = f"${price * 1.35:.2f} (3차 목표 +35%)"
+        targets["stop_loss"] = f"${max(bb_lower, price * 0.90, ma200 * 0.97):.2f} (손절 -10%)"
+        targets["risk_reward"] = "1:3.5 (균형 전략)"
+        
+    elif position_category in ["STRONG_SELL", "SELL"]:
+        # 강력 매도 시나리오 - 고점 예측 기반 분할 매도
+        peak_prediction = predict_peak_price(df, latest)
+        predicted_peak = peak_prediction['predicted_peak']
+        confidence = peak_prediction['confidence']
+        
+        # 예상 고점 기준 분할 매도 구간 설정
+        targets["predicted_peak"] = f"${predicted_peak:.2f} (예상 고점 - {confidence} 신뢰도)"
+        targets["exit_stage_1"] = f"${price:.2f} (즉시 30% 매도 - 현재가)"
+        targets["exit_stage_2"] = f"${(predicted_peak * 0.85):.2f} (추가 30% 매도 - 예상고점 85%)"
+        targets["exit_stage_3"] = f"${(predicted_peak * 0.95):.2f} (추가 30% 매도 - 예상고점 95%)"
+        targets["exit_stage_4"] = f"${predicted_peak:.2f} (최종 10% 매도 - 예상고점 도달)"
+        
+        # 기술 지표별 예상 고점 상세
+        targets["indicator_peaks"] = (
+            f"볼린저: ${peak_prediction['bb_peak']:.0f} | "
+            f"52주고점: ${peak_prediction['high_52w_peak']:.0f} | "
+            f"추세: ${peak_prediction['trend_peak']:.0f} | "
+            f"변동성: ${peak_prediction['volatility_peak']:.0f}"
+        )
+        
+        # 현재가 대비 예상 고점까지 상승 여력
+        upside_potential = ((predicted_peak / price - 1) * 100)
+        targets["upside_to_peak"] = f"+{upside_potential:.1f}% (현재가 → 예상 고점)"
+        
+        # 지지선 (하락 시)
+        targets["support_1"] = f"${max(bb_lower, price * 0.88):.2f} (1차 지지선)"
+        targets["support_2"] = f"${price * 0.80:.2f} (2차 지지선)"
+        targets["support_3"] = f"${price * 0.70:.2f} (3차 지지선)"
+        targets["reentry_zone"] = f"${min(fib_618, price * 0.70):.2f} 근처 (재진입 고려)"
+        
+    elif position_category in ["WEAK_SELL", "NEUTRAL_SELL"]:
+        # 약한 매도 시나리오 - 고점 예측 기반
+        peak_prediction = predict_peak_price(df, latest)
+        predicted_peak = peak_prediction['predicted_peak']
+        confidence = peak_prediction['confidence']
+        
+        # 예상 고점 기준 보수적 분할 매도
+        targets["predicted_peak"] = f"${predicted_peak:.2f} (예상 고점 - {confidence} 신뢰도)"
+        targets["exit_stage_1"] = f"${(predicted_peak * 0.90):.2f} (1차 매도 20% - 예상고점 90%)"
+        targets["exit_stage_2"] = f"${(predicted_peak * 0.95):.2f} (2차 매도 30% - 예상고점 95%)"
+        targets["exit_stage_3"] = f"${predicted_peak:.2f} (3차 매도 30% - 예상고점 도달)"
+        targets["exit_stage_4"] = f"${(predicted_peak * 1.03):.2f} (최종 20% - 예상고점 초과 시)"
+        
+        # 상승 여력
+        upside_potential = ((predicted_peak / price - 1) * 100)
+        targets["upside_to_peak"] = f"+{upside_potential:.1f}% (현재가 → 예상 고점)"
+        
+        # 지지선
+        targets["support_1"] = f"${max(bb_lower, price * 0.92):.2f} (1차 지지선)"
+        targets["support_2"] = f"${price * 0.85:.2f} (2차 지지선)"
+        targets["support_3"] = f"${price * 0.78:.2f} (3차 지지선)"
+        targets["reentry_zone"] = f"${min(fib_618, price * 0.80):.2f} 근처 (재진입 고려)"
         
     else:
         # 중립 시나리오
@@ -985,6 +1137,201 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <title>비트코인 분석 리포트</title>
+        <style type="text/css">
+            /* 프린트 전용 스타일 */
+            @media print {{
+                /* 페이지 설정 */
+                @page {{
+                    size: A4;
+                    margin: 1cm;
+                }}
+                
+                /* 기본 스타일 */
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+                    font-size: 10pt;
+                    line-height: 1.4;
+                    color: #000;
+                    background: #fff !important;
+                }}
+                
+                /* 배경색 제거 */
+                * {{
+                    background: transparent !important;
+                    box-shadow: none !important;
+                }}
+                
+                /* 컨테이너 */
+                table {{
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    border-collapse: collapse;
+                }}
+                
+                /* 헤더 스타일 */
+                .print-header {{
+                    background: #0052cc !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                    color: #000 !important;
+                    padding: 15px !important;
+                    border: 2px solid #000 !important;
+                    page-break-after: avoid;
+                }}
+                
+                .print-header h1 {{
+                    color: #000 !important;
+                    font-size: 18pt !important;
+                    margin: 0 !important;
+                }}
+                
+                .print-header p {{
+                    color: #333 !important;
+                    font-size: 9pt !important;
+                }}
+                
+                /* 가격 정보 */
+                .price-box {{
+                    border: 2px solid #000 !important;
+                    padding: 10px !important;
+                    text-align: center;
+                    page-break-inside: avoid;
+                }}
+                
+                .price-box p {{
+                    font-size: 24pt !important;
+                    font-weight: bold !important;
+                    color: #000 !important;
+                }}
+                
+                /* 투자 판단 박스 */
+                .judgment-box {{
+                    border: 3px solid #000 !important;
+                    padding: 15px !important;
+                    text-align: center;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                .judgment-box p {{
+                    font-size: 16pt !important;
+                    font-weight: bold !important;
+                    color: #000 !important;
+                }}
+                
+                /* 섹션 제목 */
+                h2 {{
+                    font-size: 14pt !important;
+                    color: #000 !important;
+                    border-bottom: 2px solid #000 !important;
+                    padding-bottom: 5px !important;
+                    margin: 15px 0 10px 0 !important;
+                    page-break-after: avoid;
+                }}
+                
+                /* 표 스타일 */
+                .data-table {{
+                    border: 1px solid #000 !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                .data-table td {{
+                    border: 1px solid #666 !important;
+                    padding: 8px !important;
+                    font-size: 9pt !important;
+                    color: #000 !important;
+                }}
+                
+                .table-header {{
+                    background: #ddd !important;
+                    -webkit-print-color-adjust: exact;
+                    print-color-adjust: exact;
+                    font-weight: bold !important;
+                }}
+                
+                /* 4년 주기 및 고점 근접도 박스 */
+                .warning-box {{
+                    border: 2px solid #000 !important;
+                    padding: 10px !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                /* 경고 박스 */
+                .alert-box {{
+                    border: 3px double #000 !important;
+                    padding: 10px !important;
+                    margin: 10px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                /* 지표 카드 */
+                .indicator-card {{
+                    border: 1px solid #666 !important;
+                    padding: 8px !important;
+                    margin: 5px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                /* 유의사항 박스 */
+                .notice-box {{
+                    border: 1px dashed #666 !important;
+                    padding: 10px !important;
+                    margin: 15px 0 !important;
+                    page-break-inside: avoid;
+                }}
+                
+                .notice-box ul {{
+                    margin: 5px 0 !important;
+                    padding-left: 20px !important;
+                }}
+                
+                .notice-box li {{
+                    font-size: 8pt !important;
+                    line-height: 1.4 !important;
+                    color: #333 !important;
+                }}
+                
+                /* 푸터 */
+                .footer {{
+                    border-top: 1px solid #000 !important;
+                    padding: 10px !important;
+                    text-align: center;
+                    font-size: 8pt !important;
+                    color: #666 !important;
+                    page-break-before: avoid;
+                }}
+                
+                /* 페이지 브레이크 제어 */
+                .no-break {{
+                    page-break-inside: avoid;
+                }}
+                
+                .page-break {{
+                    page-break-before: always;
+                }}
+                
+                /* 불필요한 요소 숨김 */
+                .no-print {{
+                    display: none !important;
+                }}
+                
+                /* 링크 URL 표시 */
+                a[href]:after {{
+                    content: none !important;
+                }}
+            }}
+            
+            /* 화면 표시용 스타일 */
+            @media screen {{
+                .print-only {{
+                    display: none;
+                }}
+            }}
+        </style>
     </head>
     <body style="margin:0; padding:0; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', sans-serif;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f7f7f7;">
@@ -994,9 +1341,9 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                     <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                         <!-- 헤더 -->
                         <tr>
-                            <td align="center" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
+                            <td align="center" class="print-header" style="padding: 30px 30px 20px 30px; background-color: #0052cc; border-radius: 8px 8px 0 0;">
                                 <h1 style="color: #ffffff; font-size: 24px; margin: 0 0 10px 0;">📈 비트코인(BTC) 중장기 투자 분석</h1>
-                                <p style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">12개 핵심 지표 종합 분석 리포트</p>
+                                <p style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">14개 핵심 지표 종합 분석 리포트</p>
                                 <p style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">{date_str}</p>
                             </td>
                         </tr>
@@ -1006,7 +1353,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                             <td style="padding: 0;">
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
-                                        <td align="center" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
+                                        <td align="center" class="price-box no-break" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
                                             <p style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">현재 가격</p>
                                             <p style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; color: #0d2a53;">
                                                 ${price:,.2f}
@@ -1025,12 +1372,15 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                         <td align="center" style="padding: 25px 30px; background-color: #ffffff; border-bottom: 1px solid #f0f0f0;">
                                             <table border="0" cellpadding="0" cellspacing="0" width="90%">
                                                 <tr>
-                                                    <td align="center" style="padding: 20px; border-radius: 12px; background-color: {position_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                    <td align="center" class="judgment-box no-break" style="padding: 20px; border-radius: 12px; background-color: {position_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
                                                         <p style="margin: 0; font-size: 26px; font-weight: bold; color: #ffffff;">
                                                             {final_position}
                                                         </p>
                                                         <p style="margin: 10px 0 0 0; font-size: 14px; color: #ffffff; opacity: 0.9;">
                                                             종합 점수: {total_score:.1f}점
+                                                        </p>
+                                                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #ffffff; opacity: 0.75;">
+                                                            (범위: -15점~+25점 | 중립: 0점 | 매수: +6점 이상 | 매도: -3점 이하)
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -1059,56 +1409,15 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                             </td>
                         </tr>
                         
-                        <!-- 4년 주기 및 고점 분석 (최우선 표시) -->
-                        <tr>
-                            <td style="padding: 25px 30px; background-color: #FFF3E0; border-top: 3px solid #FF9800;">
-                                <h2 style="color: #E65100; font-size: 22px; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #FFB74D;">
-                                    🔄 비트코인 4년 주기 분석
+                        <!-- 핵심 분석: 고점 근접도 (메인) + 4년 주기 (참고) -->
+                        <tr class="page-break">
+                            <td style="padding: 25px 30px; background-color: #ffffff;">
+                                <h2 style="color: #D32F2F; font-size: 24px; margin: 0 0 25px 0; padding-bottom: 12px; border-bottom: 3px solid #F44336;">
+                                    📊 핵심 분석: 고점 근접도 (12개 지표 종합)
                                 </h2>
     """
     
-    # 4년 주기 정보
-    if cycle_info:
-        cycle_color = "#4CAF50" if cycle_info['phase_score'] > 0 else "#FF5722"
-        days_since = cycle_info['days_since_halving']
-        cycle_pct = cycle_info['cycle_position_pct']
-        
-        html += f"""
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; background-color: #ffffff; border-radius: 8px; border: 2px solid {cycle_color};">
-                                    <tr>
-                                        <td style="padding: 20px;">
-                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                                <tr>
-                                                    <td style="font-size: 16px; font-weight: bold; color: #333333; padding-bottom: 10px;">
-                                                        📅 사이클 위치: {cycle_info['cycle_phase']}
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="font-size: 14px; color: #666666; padding: 5px 0;">
-                                                        • 최근 반감기: {cycle_info['last_halving'].strftime('%Y년 %m월 %d일')} ({days_since}일 경과)
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="font-size: 14px; color: #666666; padding: 5px 0;">
-                                                        • 사이클 진행률: {cycle_pct:.1f}% (4년 주기 기준)
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 15px 0 5px 0;">
-                                                        <div style="width: 100%; height: 30px; background-color: #E0E0E0; border-radius: 15px; overflow: hidden;">
-                                                            <div style="width: {min(100, cycle_pct):.1f}%; height: 100%; background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #FF5722 100%); display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; color: #ffffff; font-weight: bold; font-size: 12px;">
-                                                                {cycle_pct:.1f}%
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-        """
-    
-    # 고점 근접도 정보
+    # 고점 근접도 정보 (메인 - 먼저 표시)
     if peak_info:
         peak_score = peak_info['peak_score']
         if peak_score >= 80:
@@ -1125,7 +1434,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
             peak_border_color = "#2E7D32"
         
         html += f"""
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px; background-color: {peak_bg_color}; border-radius: 8px; border: 3px solid {peak_border_color};">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="alert-box no-break" style="margin-bottom: 20px; background-color: {peak_bg_color}; border-radius: 8px; border: 3px solid {peak_border_color};">
                                     <tr>
                                         <td style="padding: 20px;">
                                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -1173,6 +1482,42 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                                                 </td>
                                                             </tr>
                                                         </table>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                </table>
+        """
+    
+    # 4년 주기 정보 (보조 정보 - 나중에 간략하게 표시)
+    if cycle_info:
+        cycle_color = "#757575" if cycle_info['phase_score'] > 0 else "#9E9E9E"
+        days_since = cycle_info['days_since_halving']
+        cycle_pct = cycle_info['cycle_position_pct']
+        
+        html += f"""
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 15px; background-color: #F5F5F5; border-radius: 6px; border-left: 3px solid {cycle_color};">
+                                    <tr>
+                                        <td style="padding: 12px 15px;">
+                                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                                <tr>
+                                                    <td style="font-size: 13px; font-weight: bold; color: #555555; padding-bottom: 8px;">
+                                                        🔄 4년 주기 참고: {cycle_info['cycle_phase']}
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="font-size: 12px; color: #777777; padding: 2px 0;">
+                                                        최근 반감기 {cycle_info['last_halving'].strftime('%Y.%m.%d')} ({days_since}일 경과) | 진행률 {cycle_pct:.1f}%
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td style="padding: 8px 0 0 0;">
+                                                        <div style="width: 100%; height: 20px; background-color: #E0E0E0; border-radius: 10px; overflow: hidden;">
+                                                            <div style="width: {min(100, cycle_pct):.1f}%; height: 100%; background: linear-gradient(90deg, #9E9E9E 0%, #757575 100%); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: #ffffff; font-weight: bold; font-size: 10px;">
+                                                                {cycle_pct:.1f}%
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             </table>
@@ -1484,7 +1829,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
     # 투자자 유의사항 및 푸터
     html += f"""
                                 <!-- 투자자 유의사항 -->
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px; background-color: #FFFDE7; border-radius: 6px; border-left: 3px solid #FFC107;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" class="notice-box no-break" style="margin-top: 10px; background-color: #FFFDE7; border-radius: 6px; border-left: 3px solid #FFC107;">
                                     <tr>
                                         <td style="padding: 15px;">
                                             <h3 style="margin: 0 0 10px 0; color: #555555; font-size: 16px;">⚠️ 중장기 투자자를 위한 유의사항</h3>
@@ -1504,7 +1849,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                         
                         <!-- 푸터 -->
                         <tr>
-                            <td style="padding: 20px 30px; background-color: #f5f5f5; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #777777; border-top: 1px solid #eeeeee;">
+                            <td class="footer" style="padding: 20px 30px; background-color: #f5f5f5; border-radius: 0 0 8px 8px; text-align: center; font-size: 12px; color: #777777; border-top: 1px solid #eeeeee;">
                                 <p style="margin: 0;">© 9min 비트코인 기술적 분석 리포트</p>
                             </td>
                         </tr>
@@ -1593,6 +1938,13 @@ def analyze_and_send():
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 4년 주기: {cycle_info['cycle_phase']} ({cycle_info['cycle_position_pct']:.1f}%)")
     if peak_info:
         print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 고점 근접도: {peak_info['peak_score']:.0f}/100 - {peak_info['sell_recommendation']}")
+    
+    # 고점 예측 정보 출력 (매도 신호일 때)
+    if 'predicted_peak' in targets:
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 예상 고점: {targets['predicted_peak']}")
+        if 'upside_to_peak' in targets:
+            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 상승 여력: {targets['upside_to_peak']}")
+    
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 권장 행동: {action}")
     
     # 이메일 전송
