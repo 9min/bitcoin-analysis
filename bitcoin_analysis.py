@@ -1445,9 +1445,12 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                     <tr>
                                         <td align="center" class="price-box no-break mobile-padding" style="padding: 25px 30px; background: linear-gradient(135deg, #f5f9ff 0%, #ecf4ff 100%);">
-                                            <p class="mobile-text-small" style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">현재 가격</p>
+                                            <p class="mobile-text-small" style="margin: 0; font-size: 14px; color: #0052cc; font-weight: bold;">분석 시점 가격</p>
                                             <p class="mobile-price" style="margin: 10px 0 0 0; font-size: 36px; font-weight: bold; color: #0d2a53;">
                                                 ${price:,.2f}
+                                            </p>
+                                            <p class="mobile-text-small" style="margin: 8px 0 0 0; font-size: 11px; color: #666666; opacity: 0.8;">
+                                                (데이터 수집: {date_str})
                                             </p>
                                         </td>
                                     </tr>
