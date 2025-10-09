@@ -105,7 +105,7 @@ https://YOUR_USERNAME.github.io/bitcoin-analysis/
 
 ## ✅ 완료!
 
-이제 매일 오전 9시(한국시간)에 자동으로 업데이트됩니다! 🎉
+이제 매 시간마다 자동으로 업데이트됩니다! 🎉
 
 ## 🔧 문제 해결
 

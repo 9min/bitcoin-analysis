@@ -1434,7 +1434,7 @@ def format_analysis_result_html(final_position, indicators, recommendation, pric
                                 <p class="mobile-text-small" style="color: #ffffff; opacity: 0.9; margin: 5px 0; font-size: 14px;">14개 핵심 지표 종합 분석 리포트</p>
                                 <p class="mobile-text-small" style="color: #ffffff; opacity: 0.8; margin: 5px 0; font-size: 12px;">{date_str}</p>
                                 <p class="mobile-text-small" style="color: #ffffff; opacity: 0.7; margin: 8px 0 0 0; font-size: 11px; background-color: rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 15px; display: inline-block;">
-                                    🔄 매일 오전 9시 (KST) 자동 업데이트
+                                    🔄 매 시간 정각 (KST) 자동 업데이트
                                 </p>
                             </td>
                         </tr>
