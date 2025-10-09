@@ -7,7 +7,7 @@
 
 **GitHub Pages:** https://9min.github.io/bitcoin-analysis/
 
-> 매일 한국시간 오전 9시에 자동으로 업데이트됩니다!
+> 매 시간마다 자동으로 업데이트됩니다!
 
 ## ✨ 주요 기능
 
@@ -76,7 +76,10 @@ bitcoin-analysis/
 ### 업데이트 주기 변경
 `.github/workflows/deploy.yml` 파일의 cron 수정:
 ```yaml
-# 매일 오전 9시 (현재)
+# 매 시간마다 (현재)
+- cron: '0 * * * *'
+
+# 매일 오전 9시로 변경하려면
 - cron: '0 0 * * *'
 
 # 하루 2번 (오전 9시, 오후 9시)

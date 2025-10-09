@@ -1,9 +1,9 @@
 name: 비트코인 분석 리포트 자동 배포
 
 on:
-  # 매일 한국시간 오전 9시에 실행 (UTC 0시)
+  # 매 시간마다 실행 (UTC 기준)
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 * * * *'
   
   # 수동 실행 가능
   workflow_dispatch:
